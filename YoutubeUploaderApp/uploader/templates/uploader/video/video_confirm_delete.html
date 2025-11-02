@@ -1,0 +1,39 @@
+{% extends 'uploader/base_authenticated.html' %}
+
+{% block title %}Usuwanie wideo{% endblock %}
+{% block page_title %}Potwierdzenie usunięcia{% endblock %}
+
+{% block content %}
+<div class="max-w-2xl mx-auto">
+    <div class="bg-white shadow-xl rounded-lg overflow-hidden">
+        <div class="p-6">
+            <div class="flex items-center mb-6">
+                <i class="fas fa-exclamation-triangle text-5xl text-red-600 mr-4"></i>
+                <div>
+                    <h2 class="text-2xl font-bold text-gray-900">Czy na pewno chcesz usunąć to wideo?</h2>
+                    <p class="text-gray-600 mt-1">Ta operacja jest nieodwracalna!</p>
+                </div>
+            </div>
+
+            <div class="bg-gray-50 p-4 rounded-lg mb-6">
+                <h3 class="font-semibold text-gray-900 mb-2">{{ video.title }}</h3>
+                <p class="text-sm text-gray-600">{{ video.description|truncatewords:30 }}</p>
+                <p class="text-sm text-red-600 mt-2">
+                    <i class="fas fa-info-circle mr-1"></i>
+                    Zostanie usunięte również {{ video.get_shorts_count }} shortów powiązanych z tym wideo.
+                </p>
+            </div>
+
+            <form method="post" class="flex justify-end space-x-3">
+                {% csrf_token %}
+                <a href="{% url 'uploader:video_detail' video.pk %}" class="px-6 py-3 border border-gray-300 rounded-lg text-gray-700 hover:bg-gray-50">
+                    <i class="fas fa-times mr-2"></i>Anuluj
+                </a>
+                <button type="submit" class="px-6 py-3 bg-red-600 text-white rounded-lg hover:bg-red-700">
+                    <i class="fas fa-trash mr-2"></i>Usuń Wideo
+                </button>
+            </form>
+        </div>
+    </div>
+</div>
+{% endblock %}

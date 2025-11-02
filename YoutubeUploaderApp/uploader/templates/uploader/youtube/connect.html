@@ -1,0 +1,159 @@
+{% extends 'uploader/base_authenticated.html' %}
+
+{% block title %}Połączenie z YouTube{% endblock %}
+{% block page_title %}Połączenie z kontem YouTube{% endblock %}
+
+{% block content %}
+<div class="max-w-4xl mx-auto">
+    {% if yt_account %}
+    <!-- Connected Account -->
+    <div class="bg-white shadow-xl rounded-lg overflow-hidden mb-6">
+        <div class="bg-gradient-to-r from-red-600 to-red-700 p-6 text-white">
+            <div class="flex items-center justify-between">
+                <div class="flex items-center">
+                    <i class="fab fa-youtube text-5xl mr-4"></i>
+                    <div>
+                        <h2 class="text-2xl font-bold">Połączono z YouTube</h2>
+                        <p class="text-red-100 mt-1">Twoje konto jest aktywne</p>
+                    </div>
+                </div>
+                <i class="fas fa-check-circle text-5xl text-green-300"></i>
+            </div>
+        </div>
+        
+        <div class="p-6">
+            <div class="grid grid-cols-1 md:grid-cols-2 gap-6 mb-6">
+                <div>
+                    <h3 class="text-sm font-medium text-gray-700 mb-2">Informacje o kanale:</h3>
+                    <div class="bg-gray-50 p-4 rounded-lg space-y-2">
+                        <div class="flex justify-between">
+                            <span class="text-gray-600">Nazwa kanału:</span>
+                            <span class="font-semibold text-gray-900">{{ yt_account.channel_name|default:"Brak danych" }}</span>
+                        </div>
+                        <div class="flex justify-between">
+                            <span class="text-gray-600">ID kanału:</span>
+                            <span class="font-mono text-sm text-gray-900">{{ yt_account.channel_id|default:"Brak danych" }}</span>
+                        </div>
+                        <div class="flex justify-between">
+                            <span class="text-gray-600">Połączono:</span>
+                            <span class="text-gray-900">{{ yt_account.created_at|date:"d.m.Y H:i" }}</span>
+                        </div>
+                    </div>
+                </div>
+                
+                <div>
+                    <h3 class="text-sm font-medium text-gray-700 mb-2">Status połączenia:</h3>
+                    <div class="bg-gray-50 p-4 rounded-lg space-y-2">
+                        <div class="flex justify-between">
+                            <span class="text-gray-600">Status:</span>
+                            {% if yt_account.is_token_valid %}
+                            <span class="px-3 py-1 bg-green-100 text-green-800 rounded-full text-sm font-semibold">
+                                <i class="fas fa-circle text-xs mr-1"></i>Aktywny
+                            </span>
+                            {% else %}
+                            <span class="px-3 py-1 bg-yellow-100 text-yellow-800 rounded-full text-sm font-semibold">
+                                <i class="fas fa-exclamation-circle text-xs mr-1"></i>Token wygasł
+                            </span>
+                            {% endif %}
+                        </div>
+                        <div class="flex justify-between">
+                            <span class="text-gray-600">Ostatnia aktualizacja:</span>
+                            <span class="text-gray-900">{{ yt_account.updated_at|date:"d.m.Y H:i" }}</span>
+                        </div>
+                        <div class="flex justify-between">
+                            <span class="text-gray-600">Token wygasa:</span>
+                            <span class="text-gray-900">
+                                {% if yt_account.token_expiry %}
+                                    {{ yt_account.token_expiry|date:"d.m.Y H:i" }}
+                                {% else %}
+                                    Brak danych
+                                {% endif %}
+                            </span>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            
+            <!-- Actions -->
+            <div class="flex space-x-3 pt-4 border-t border-gray-200">
+                <form method="post" action="{% url 'uploader:youtube_refresh' %}" class="flex-1">
+                    {% csrf_token %}
+                    <button type="submit" class="w-full px-6 py-3 bg-blue-600 text-white rounded-lg hover:bg-blue-700">
+                        <i class="fas fa-sync-alt mr-2"></i>Odśwież token
+                    </button>
+                </form>
+                
+                <form method="post" action="{% url 'uploader:youtube_disconnect' %}" class="flex-1">
+                    {% csrf_token %}
+                    <button type="submit" class="w-full px-6 py-3 bg-red-600 text-white rounded-lg hover:bg-red-700">
+                        <i class="fas fa-unlink mr-2"></i>Rozłącz konto
+                    </button>
+                </form>
+            </div>
+        </div>
+    </div>
+    
+    {% else %}
+    <!-- Not Connected -->
+    <div class="bg-white shadow-xl rounded-lg overflow-hidden">
+        <div class="p-8 text-center">
+            <i class="fab fa-youtube text-gray-300 text-8xl mb-6"></i>
+            <h2 class="text-3xl font-bold text-gray-900 mb-3">Połącz konto YouTube</h2>
+            <p class="text-gray-600 mb-8 max-w-2xl mx-auto">
+                Aby móc publikować shorty bezpośrednio na YouTube, musisz połączyć swoje konto. 
+                Proces autoryzacji jest bezpieczny i zarządzany przez Google OAuth 2.0.
+            </p>
+            
+            <!-- Benefits -->
+            <div class="grid grid-cols-1 md:grid-cols-3 gap-4 mb-8 text-left">
+                <div class="bg-green-50 border border-green-200 rounded-lg p-4">
+                    <i class="fas fa-upload text-green-600 text-2xl mb-2"></i>
+                    <h3 class="font-semibold text-gray-900 mb-1">Automatyczna publikacja</h3>
+                    <p class="text-sm text-gray-600">Publikuj shorty jednym kliknięciem</p>
+                </div>
+                
+                <div class="bg-blue-50 border border-blue-200 rounded-lg p-4">
+                    <i class="fas fa-chart-line text-blue-600 text-2xl mb-2"></i>
+                    <h3 class="font-semibold text-gray-900 mb-1">Analityka</h3>
+                    <p class="text-sm text-gray-600">Śledź wyświetlenia i zaangażowanie</p>
+                </div>
+                
+                <div class="bg-purple-50 border border-purple-200 rounded-lg p-4">
+                    <i class="fas fa-calendar-alt text-purple-600 text-2xl mb-2"></i>
+                    <h3 class="font-semibold text-gray-900 mb-1">Harmonogram</h3>
+                    <p class="text-sm text-gray-600">Planuj publikacje z wyprzedzeniem</p>
+                </div>
+            </div>
+            
+            <!-- Connect Button -->
+            <a href="{% url 'uploader:youtube_oauth' %}" class="inline-flex items-center px-8 py-4 bg-red-600 text-white text-lg font-semibold rounded-lg hover:bg-red-700 shadow-lg hover:shadow-xl transition-all">
+                <i class="fab fa-google mr-3 text-2xl"></i>
+                Połącz z Google/YouTube
+            </a>
+            
+            <p class="text-xs text-gray-500 mt-4">
+                <i class="fas fa-lock mr-1"></i>
+                Bezpieczne połączenie przez Google OAuth 2.0
+            </p>
+        </div>
+    </div>
+    
+    <!-- How it works -->
+    <div class="mt-6 bg-blue-50 border-l-4 border-blue-400 p-4">
+        <div class="flex">
+            <i class="fas fa-info-circle text-blue-400 text-xl mr-3 mt-1"></i>
+            <div>
+                <h3 class="text-sm font-medium text-blue-800 mb-2">Jak to działa?</h3>
+                <ol class="text-sm text-blue-700 space-y-1 list-decimal list-inside">
+                    <li>Kliknij przycisk "Połącz z Google/YouTube"</li>
+                    <li>Zostaniesz przekierowany na stronę logowania Google</li>
+                    <li>Zaloguj się i zatwierdź dostęp do YouTube</li>
+                    <li>Zostaniesz automatycznie przekierowany z powrotem</li>
+                    <li>Gotowe! Możesz teraz publikować shorty</li>
+                </ol>
+            </div>
+        </div>
+    </div>
+    {% endif %}
+</div>
+{% endblock %}

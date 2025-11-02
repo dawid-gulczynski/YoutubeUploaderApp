@@ -1,0 +1,161 @@
+{% extends 'uploader/base_authenticated.html' %}
+
+{% block title %}Wgraj wideo{% endblock %}
+{% block page_title %}Upload Nowego Wideo{% endblock %}
+
+{% block content %}
+<div class="max-w-3xl mx-auto">
+    <!-- FFmpeg Warning -->
+    {% if not ffmpeg_installed %}
+    <div class="bg-red-50 border-l-4 border-red-400 p-4 mb-6">
+        <div class="flex">
+            <div class="flex-shrink-0">
+                <i class="fas fa-exclamation-triangle text-red-400 text-xl"></i>
+            </div>
+            <div class="ml-3">
+                <h3 class="text-sm font-medium text-red-800">FFmpeg nie jest zainstalowany!</h3>
+                <div class="mt-2 text-sm text-red-700">
+                    <p>Bez FFmpeg wideo zostanie wgrane, ale shorty nie zostaną wygenerowane.</p>
+                    <p class="mt-1">Zainstaluj FFmpeg: <code class="bg-red-100 px-2 py-1 rounded">choco install ffmpeg</code></p>
+                </div>
+            </div>
+        </div>
+    </div>
+    {% endif %}
+    
+    <div class="bg-white shadow-xl rounded-lg overflow-hidden">
+        <div class="px-6 py-4 bg-gradient-to-r from-red-600 to-red-700">
+            <h2 class="text-2xl font-bold text-white">
+                <i class="fas fa-cloud-upload-alt mr-2"></i>
+                Wgraj Wideo Źródłowe
+            </h2>
+            <p class="text-red-100 mt-1">Automatycznie potniemy je na shorty w formacie 9:16</p>
+        </div>
+
+        <form method="post" enctype="multipart/form-data" class="p-6 space-y-6">
+            {% csrf_token %}
+            
+            <!-- Title -->
+            <div>
+                <label for="{{ form.title.id_for_label }}" class="block text-sm font-medium text-gray-700 mb-2">
+                    <i class="fas fa-heading"></i> Tytuł Wideo *
+                </label>
+                {{ form.title }}
+                {% if form.title.errors %}
+                    <p class="mt-1 text-sm text-red-600">{{ form.title.errors.0 }}</p>
+                {% endif %}
+            </div>
+
+            <!-- Description -->
+            <div>
+                <label for="{{ form.description.id_for_label }}" class="block text-sm font-medium text-gray-700 mb-2">
+                    <i class="fas fa-align-left"></i> Opis
+                </label>
+                {{ form.description }}
+                {% if form.description.errors %}
+                    <p class="mt-1 text-sm text-red-600">{{ form.description.errors.0 }}</p>
+                {% endif %}
+            </div>
+
+            <!-- Video File -->
+            <div>
+                <label for="{{ form.video_file.id_for_label }}" class="block text-sm font-medium text-gray-700 mb-2">
+                    <i class="fas fa-file-video"></i> Plik Wideo *
+                </label>
+                <div class="mt-1 flex justify-center px-6 pt-5 pb-6 border-2 border-gray-300 border-dashed rounded-md hover:border-red-500 transition-colors">
+                    <div class="space-y-1 text-center">
+                        <i class="fas fa-cloud-upload-alt text-5xl text-gray-400"></i>
+                        <div class="flex text-sm text-gray-600">
+                            <label for="{{ form.video_file.id_for_label }}" class="relative cursor-pointer bg-white rounded-md font-medium text-red-600 hover:text-red-500">
+                                <span>Wybierz plik</span>
+                                {{ form.video_file }}
+                            </label>
+                            <p class="pl-1">lub przeciągnij tutaj</p>
+                        </div>
+                        <p class="text-xs text-gray-500">MP4, MOV, AVI do 2GB</p>
+                    </div>
+                </div>
+                {% if form.video_file.errors %}
+                    <p class="mt-1 text-sm text-red-600">{{ form.video_file.errors.0 }}</p>
+                {% endif %}
+            </div>
+
+            <!-- Cutting Parameters -->
+            <div class="border-t border-gray-200 pt-6">
+                <h3 class="text-lg font-medium text-gray-900 mb-4">
+                    <i class="fas fa-scissors"></i> Parametry Cięcia
+                </h3>
+                
+                <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    <!-- Target Duration -->
+                    <div>
+                        <label for="{{ form.target_duration.id_for_label }}" class="block text-sm font-medium text-gray-700 mb-2">
+                            Długość Shorta (sekundy)
+                        </label>
+                        {{ form.target_duration }}
+                        <p class="mt-1 text-xs text-gray-500">{{ form.target_duration.help_text }}</p>
+                        {% if form.target_duration.errors %}
+                            <p class="mt-1 text-sm text-red-600">{{ form.target_duration.errors.0 }}</p>
+                        {% endif %}
+                    </div>
+
+                    <!-- Max Shorts Count -->
+                    <div>
+                        <label for="{{ form.max_shorts_count.id_for_label }}" class="block text-sm font-medium text-gray-700 mb-2">
+                            Maksymalna Liczba Shortów
+                        </label>
+                        {{ form.max_shorts_count }}
+                        <p class="mt-1 text-xs text-gray-500">{{ form.max_shorts_count.help_text }}</p>
+                        {% if form.max_shorts_count.errors %}
+                            <p class="mt-1 text-sm text-red-600">{{ form.max_shorts_count.errors.0 }}</p>
+                        {% endif %}
+                    </div>
+                </div>
+
+                <!-- Crop Mode -->
+                <div class="mt-4">
+                    <label for="crop_mode" class="block text-sm font-medium text-gray-700 mb-2">
+                        Tryb Kadrowania do 9:16
+                    </label>
+                    <select name="crop_mode" id="crop_mode" class="form-control">
+                        <option value="center">Wykadruj na środek</option>
+                        <option value="smart">Inteligentne (wykryj twarze)</option>
+                        <option value="top">Wykadruj górę</option>
+                    </select>
+                </div>
+            </div>
+
+            <!-- Info Box -->
+            <div class="bg-blue-50 border-l-4 border-blue-400 p-4">
+                <div class="flex">
+                    <div class="flex-shrink-0">
+                        <i class="fas fa-info-circle text-blue-400"></i>
+                    </div>
+                    <div class="ml-3">
+                        <h3 class="text-sm font-medium text-blue-800">Jak to działa?</h3>
+                        <div class="mt-2 text-sm text-blue-700">
+                            <ul class="list-disc list-inside space-y-1">
+                                <li>Wgrywasz długi film (np. 10 minut)</li>
+                                <li>System automatycznie tnie go na krótkie segmenty (np. po 60 sekund)</li>
+                                <li>Każdy segment jest kadrowany do formatu 9:16 (vertical)</li>
+                                <li>Możesz edytować tytuły i opisy każdego shorta</li>
+                                <li>Publikujesz bezpośrednio na YouTube!</li>
+                            </ul>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Submit Buttons -->
+            <div class="flex justify-end space-x-3 pt-4">
+                <a href="{% url 'uploader:video_list' %}" class="px-6 py-3 border border-gray-300 rounded-md shadow-sm text-sm font-medium text-gray-700 bg-white hover:bg-gray-50">
+                    <i class="fas fa-times mr-2"></i>Anuluj
+                </a>
+                <button type="submit" class="px-6 py-3 border border-transparent rounded-md shadow-sm text-sm font-medium text-white bg-red-600 hover:bg-red-700">
+                    <i class="fas fa-rocket mr-2"></i>Wgraj i Przetwórz
+                </button>
+            </div>
+        </form>
+    </div>
+</div>
+{% endblock %}

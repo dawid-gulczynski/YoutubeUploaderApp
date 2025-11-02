@@ -1,0 +1,197 @@
+{% extends 'uploader/base_authenticated.html' %}
+
+{% block title %}Shorty{% endblock %}
+{% block page_title %}Moje Shorty{% endblock %}
+
+{% block content %}
+<!-- Filters -->
+<div class="bg-white shadow-lg rounded-lg p-4 mb-6">
+    <form method="get" class="flex flex-wrap items-center gap-4">
+        <div class="flex-1 min-w-[200px]">
+            <input type="text" name="search" value="{{ request.GET.search }}" 
+                   placeholder="Szukaj po tytule..." 
+                   class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-red-500 focus:border-transparent">
+        </div>
+        
+        <div class="min-w-[150px]">
+            <select name="status" class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-red-500">
+                <option value="">Wszystkie statusy</option>
+                <option value="pending" {% if request.GET.status == 'pending' %}selected{% endif %}>Oczekujące</option>
+                <option value="uploading" {% if request.GET.status == 'uploading' %}selected{% endif %}>Wgrywanie</option>
+                <option value="published" {% if request.GET.status == 'published' %}selected{% endif %}>Opublikowane</option>
+                <option value="failed" {% if request.GET.status == 'failed' %}selected{% endif %}>Błąd</option>
+            </select>
+        </div>
+        
+        <button type="submit" class="px-6 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700">
+            <i class="fas fa-filter mr-2"></i>Filtruj
+        </button>
+        
+        {% if request.GET %}
+        <a href="{% url 'uploader:short_list' %}" class="px-6 py-2 border border-gray-300 rounded-lg text-gray-700 hover:bg-gray-50">
+            <i class="fas fa-times mr-2"></i>Wyczyść
+        </a>
+        {% endif %}
+    </form>
+</div>
+
+<!-- Stats Overview -->
+<div class="grid grid-cols-1 md:grid-cols-4 gap-6 mb-6">
+    <div class="bg-gradient-to-br from-blue-500 to-blue-600 text-white shadow-lg rounded-lg p-6">
+        <div class="flex items-center justify-between">
+            <div>
+                <p class="text-blue-100 text-sm font-medium">Wszystkie shorty</p>
+                <p class="text-3xl font-bold mt-2">{{ stats.total }}</p>
+            </div>
+            <i class="fas fa-film text-4xl text-blue-200"></i>
+        </div>
+    </div>
+    
+    <div class="bg-gradient-to-br from-yellow-500 to-yellow-600 text-white shadow-lg rounded-lg p-6">
+        <div class="flex items-center justify-between">
+            <div>
+                <p class="text-yellow-100 text-sm font-medium">Oczekujące</p>
+                <p class="text-3xl font-bold mt-2">{{ stats.pending }}</p>
+            </div>
+            <i class="fas fa-clock text-4xl text-yellow-200"></i>
+        </div>
+    </div>
+    
+    <div class="bg-gradient-to-br from-green-500 to-green-600 text-white shadow-lg rounded-lg p-6">
+        <div class="flex items-center justify-between">
+            <div>
+                <p class="text-green-100 text-sm font-medium">Opublikowane</p>
+                <p class="text-3xl font-bold mt-2">{{ stats.published }}</p>
+            </div>
+            <i class="fas fa-check-circle text-4xl text-green-200"></i>
+        </div>
+    </div>
+    
+    <div class="bg-gradient-to-br from-purple-500 to-purple-600 text-white shadow-lg rounded-lg p-6">
+        <div class="flex items-center justify-between">
+            <div>
+                <p class="text-purple-100 text-sm font-medium">Całkowite wyświetlenia</p>
+                <p class="text-3xl font-bold mt-2">{{ stats.total_views|default:"0" }}</p>
+            </div>
+            <i class="fas fa-eye text-4xl text-purple-200"></i>
+        </div>
+    </div>
+</div>
+
+<!-- Shorts Grid -->
+{% if shorts %}
+<div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+    {% for short in shorts %}
+    <div class="bg-white shadow-lg rounded-lg overflow-hidden hover:shadow-xl transition-shadow">
+        <!-- Thumbnail -->
+        <div class="relative bg-gray-900 aspect-[9/16]">
+            {% if short.thumbnail %}
+            <img src="{{ short.thumbnail.url }}" alt="{{ short.title }}" class="w-full h-full object-cover">
+            {% else %}
+            <div class="w-full h-full flex items-center justify-center">
+                <i class="fas fa-film text-gray-600 text-5xl"></i>
+            </div>
+            {% endif %}
+            
+            <!-- Duration Badge -->
+            <span class="absolute bottom-2 right-2 bg-black bg-opacity-75 text-white px-2 py-1 rounded text-xs font-semibold">
+                {{ short.duration }}s
+            </span>
+            
+            <!-- Order Badge -->
+            <span class="absolute top-2 left-2 bg-red-600 text-white px-3 py-1 rounded-full text-xs font-bold">
+                #{{ short.order }}
+            </span>
+        </div>
+        
+        <!-- Content -->
+        <div class="p-4">
+            <h3 class="font-bold text-gray-900 mb-2 line-clamp-2">{{ short.title }}</h3>
+            
+            <p class="text-gray-600 text-sm mb-3 line-clamp-2">{{ short.description|default:"Brak opisu" }}</p>
+            
+            <!-- Status Badge -->
+            <div class="mb-3">
+                <span class="px-3 py-1 rounded-full text-xs font-semibold
+                    {% if short.upload_status == 'published' %}bg-green-100 text-green-800
+                    {% elif short.upload_status == 'uploading' %}bg-blue-100 text-blue-800
+                    {% elif short.upload_status == 'failed' %}bg-red-100 text-red-800
+                    {% else %}bg-yellow-100 text-yellow-800{% endif %}">
+                    <i class="fas fa-circle text-xs mr-1"></i>
+                    {{ short.get_upload_status_display }}
+                </span>
+            </div>
+            
+            <!-- Stats (for published shorts) -->
+            {% if short.upload_status == 'published' %}
+            <div class="flex items-center space-x-4 text-sm text-gray-500 mb-3">
+                <span><i class="fas fa-eye mr-1"></i>{{ short.views|default:"0" }}</span>
+                <span><i class="fas fa-thumbs-up mr-1"></i>{{ short.likes|default:"0" }}</span>
+            </div>
+            {% endif %}
+            
+            <!-- Video Source Info -->
+            <div class="text-xs text-gray-500 mb-3">
+                <i class="fas fa-video mr-1"></i>Z: {{ short.video.title|truncatewords:5 }}
+            </div>
+            
+            <!-- Actions -->
+            <div class="flex space-x-2">
+                <a href="{% url 'uploader:short_detail' short.pk %}" class="flex-1 px-3 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 text-center text-sm">
+                    <i class="fas fa-eye mr-1"></i>Zobacz
+                </a>
+                {% if short.can_publish %}
+                <a href="{% url 'uploader:short_publish' short.pk %}" class="flex-1 px-3 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700 text-center text-sm">
+                    <i class="fab fa-youtube mr-1"></i>Publikuj
+                </a>
+                {% endif %}
+            </div>
+        </div>
+    </div>
+    {% endfor %}
+</div>
+
+<!-- Pagination -->
+{% if is_paginated %}
+<div class="mt-8 flex justify-center">
+    <nav class="flex space-x-2">
+        {% if page_obj.has_previous %}
+        <a href="?page=1{% if request.GET.search %}&search={{ request.GET.search }}{% endif %}{% if request.GET.status %}&status={{ request.GET.status }}{% endif %}" 
+           class="px-4 py-2 border border-gray-300 rounded-lg text-gray-700 hover:bg-gray-50">
+            <i class="fas fa-angle-double-left"></i>
+        </a>
+        <a href="?page={{ page_obj.previous_page_number }}{% if request.GET.search %}&search={{ request.GET.search }}{% endif %}{% if request.GET.status %}&status={{ request.GET.status }}{% endif %}" 
+           class="px-4 py-2 border border-gray-300 rounded-lg text-gray-700 hover:bg-gray-50">
+            <i class="fas fa-angle-left"></i>
+        </a>
+        {% endif %}
+        
+        <span class="px-4 py-2 bg-red-600 text-white rounded-lg">
+            {{ page_obj.number }} / {{ page_obj.paginator.num_pages }}
+        </span>
+        
+        {% if page_obj.has_next %}
+        <a href="?page={{ page_obj.next_page_number }}{% if request.GET.search %}&search={{ request.GET.search }}{% endif %}{% if request.GET.status %}&status={{ request.GET.status }}{% endif %}" 
+           class="px-4 py-2 border border-gray-300 rounded-lg text-gray-700 hover:bg-gray-50">
+            <i class="fas fa-angle-right"></i>
+        </a>
+        <a href="?page={{ page_obj.paginator.num_pages }}{% if request.GET.search %}&search={{ request.GET.search }}{% endif %}{% if request.GET.status %}&status={{ request.GET.status }}{% endif %}" 
+           class="px-4 py-2 border border-gray-300 rounded-lg text-gray-700 hover:bg-gray-50">
+            <i class="fas fa-angle-double-right"></i>
+        </a>
+        {% endif %}
+    </nav>
+</div>
+{% endif %}
+
+{% else %}
+<div class="bg-white shadow-lg rounded-lg p-12 text-center">
+    <i class="fas fa-film text-gray-300 text-6xl mb-4"></i>
+    <h3 class="text-xl font-semibold text-gray-700 mb-2">Brak shortów</h3>
+    <p class="text-gray-500 mb-6">Wgraj wideo, aby automatycznie wygenerować shorty</p>
+    <a href="{% url 'uploader:video_upload' %}" class="inline-block px-6 py-3 bg-red-600 text-white rounded-lg hover:bg-red-700">
+        <i class="fas fa-upload mr-2"></i>Wgraj wideo
+    </a>
+</div>
+{% endif %}
+{% endblock %}

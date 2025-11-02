@@ -1,0 +1,98 @@
+{% extends 'uploader/base.html' %}
+
+{% block body_content %}
+<!-- Authenticated User Layout -->
+<div class="flex h-screen bg-gray-100">
+    <!-- Sidebar -->
+    <div class="hidden md:flex md:w-64 md:flex-col">
+        <div class="flex flex-col flex-grow pt-5 pb-4 overflow-y-auto bg-gradient-to-b from-red-600 to-red-700">
+            <div class="flex items-center flex-shrink-0 px-4">
+                <a href="{% url 'uploader:dashboard' %}" class="text-white text-2xl font-bold">
+                    <i class="fab fa-youtube"></i> YT Shorts
+                </a>
+            </div>
+            <div class="mt-8 flex-1 flex flex-col">
+                <nav class="flex-1 px-2 space-y-1">
+                    <a href="{% url 'uploader:dashboard' %}" class="group flex items-center px-2 py-2 text-sm font-medium rounded-md {% if request.resolver_match.url_name == 'dashboard' %}bg-white text-red-600{% else %}text-white hover:bg-white hover:text-red-600{% endif %}">
+                        <i class="fas fa-home mr-3 text-lg"></i>
+                        Dashboard
+                    </a>
+                    <a href="{% url 'uploader:video_list' %}" class="group flex items-center px-2 py-2 text-sm font-medium rounded-md {% if 'video' in request.resolver_match.url_name and request.resolver_match.url_name != 'video_upload' %}bg-white text-red-600{% else %}text-white hover:bg-white hover:text-red-600{% endif %}">
+                        <i class="fas fa-video mr-3 text-lg"></i>
+                        Moje Wideo
+                    </a>
+                    <a href="{% url 'uploader:short_list' %}" class="group flex items-center px-2 py-2 text-sm font-medium rounded-md {% if 'short' in request.resolver_match.url_name %}bg-white text-red-600{% else %}text-white hover:bg-white hover:text-red-600{% endif %}">
+                        <i class="fas fa-film mr-3 text-lg"></i>
+                        Shorty
+                    </a>
+                    <a href="{% url 'uploader:video_upload' %}" class="group flex items-center px-2 py-2 text-sm font-medium rounded-md {% if request.resolver_match.url_name == 'video_upload' %}bg-white text-red-600{% else %}text-white hover:bg-white hover:text-red-600{% endif %}">
+                        <i class="fas fa-upload mr-3 text-lg"></i>
+                        Upload Wideo
+                    </a>
+                    <a href="{% url 'uploader:connect_youtube' %}" class="group flex items-center px-2 py-2 text-sm font-medium rounded-md {% if 'youtube' in request.resolver_match.url_name %}bg-white text-red-600{% else %}text-white hover:bg-white hover:text-red-600{% endif %}">
+                        <i class="fab fa-youtube mr-3 text-lg"></i>
+                        Konto YouTube
+                    </a>
+                </nav>
+            </div>
+            <div class="flex-shrink-0 flex border-t border-red-500 p-4">
+                <a href="{% url 'uploader:profile_edit' %}" class="flex items-center w-full hover:bg-red-500 rounded p-2 -m-2 transition-colors">
+                    <div class="flex-1">
+                        <div class="text-sm font-medium text-white">{{ user.username }}</div>
+                        <div class="text-xs text-red-200">{{ user.role.name|default:"User" }}</div>
+                    </div>
+                    <i class="fas fa-user-edit text-white text-sm mr-2"></i>
+                </a>
+                <a href="{% url 'uploader:logout' %}" class="ml-2 p-2 text-white hover:text-red-200 hover:bg-red-500 rounded transition-colors">
+                    <i class="fas fa-sign-out-alt text-lg"></i>
+                </a>
+            </div>
+        </div>
+    </div>
+
+    <!-- Main Content -->
+    <div class="flex flex-col flex-1 overflow-hidden">
+        <header class="w-full">
+            <div class="relative z-10 flex-shrink-0 h-16 bg-white border-b border-gray-200 shadow-sm flex">
+                <div class="flex-1 flex justify-between px-4 sm:px-6">
+                    <div class="flex-1 flex items-center">
+                        <h1 class="text-2xl font-semibold text-gray-900">
+                            {% block page_title %}Dashboard{% endblock %}
+                        </h1>
+                    </div>
+                    <div class="ml-2 flex items-center space-x-4">
+                        <button class="p-2 text-gray-400 hover:text-gray-500">
+                            <i class="fas fa-bell text-xl"></i>
+                        </button>
+                    </div>
+                </div>
+            </div>
+        </header>
+
+        {% if messages %}
+        <div class="px-4 sm:px-6 lg:px-8 mt-4">
+            {% for message in messages %}
+            <div class="rounded-md p-4 mb-4 {% if message.tags == 'error' %}bg-red-50 text-red-800{% elif message.tags == 'success' %}bg-green-50 text-green-800{% elif message.tags == 'warning' %}bg-yellow-50 text-yellow-800{% else %}bg-blue-50 text-blue-800{% endif %}">
+                <div class="flex">
+                    <div class="flex-shrink-0">
+                        <i class="fas {% if message.tags == 'error' %}fa-exclamation-circle{% elif message.tags == 'success' %}fa-check-circle{% elif message.tags == 'warning' %}fa-exclamation-triangle{% else %}fa-info-circle{% endif %}"></i>
+                    </div>
+                    <div class="ml-3">
+                        <p class="text-sm font-medium">{{ message }}</p>
+                    </div>
+                </div>
+            </div>
+            {% endfor %}
+        </div>
+        {% endif %}
+
+        <main class="flex-1 overflow-y-auto focus:outline-none">
+            <div class="py-6">
+                <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+                    {% block content %}{% endblock %}
+                </div>
+            </div>
+        </main>
+    </div>
+</div>
+{% endblock %}

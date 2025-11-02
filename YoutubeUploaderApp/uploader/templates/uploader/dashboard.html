@@ -1,0 +1,219 @@
+{% extends 'uploader/base_authenticated.html' %}
+
+{% block title %}Dashboard - YouTube Shorts Uploader{% endblock %}
+{% block page_title %}Dashboard{% endblock %}
+
+{% block content %}
+<!-- FFmpeg Warning -->
+{% if not ffmpeg_installed %}
+<div class="bg-red-50 border-l-4 border-red-400 p-4 mb-6">
+    <div class="flex">
+        <div class="flex-shrink-0">
+            <i class="fas fa-exclamation-triangle text-red-400 text-2xl"></i>
+        </div>
+        <div class="ml-3 flex-1">
+            <h3 class="text-sm font-medium text-red-800">FFmpeg nie jest zainstalowany!</h3>
+            <div class="mt-2 text-sm text-red-700">
+                <p>Automatyczne cięcie wideo na shorty wymaga zainstalowanego FFmpeg.</p>
+                <p class="mt-2">
+                    <strong>Instalacja (PowerShell jako Administrator):</strong>
+                </p>
+                <code class="block bg-red-100 p-2 mt-1 rounded">choco install ffmpeg</code>
+                <p class="mt-2">
+                    <a href="https://chocolatey.org/install" target="_blank" class="underline font-semibold">
+                        Instrukcje instalacji Chocolatey <i class="fas fa-external-link-alt text-xs"></i>
+                    </a>
+                    lub zobacz plik <code>FFMPEG_INSTALL.md</code> w katalogu projektu.
+                </p>
+            </div>
+        </div>
+    </div>
+</div>
+{% endif %}
+
+<!-- Stats Cards -->
+<div class="grid grid-cols-1 gap-5 sm:grid-cols-2 lg:grid-cols-4 mb-8">
+    <div class="bg-white overflow-hidden shadow-lg rounded-lg hover:shadow-xl transition-shadow">
+        <div class="p-5">
+            <div class="flex items-center">
+                <div class="flex-shrink-0">
+                    <i class="fas fa-video text-3xl text-blue-500"></i>
+                </div>
+                <div class="ml-5 w-0 flex-1">
+                    <dl>
+                        <dt class="text-sm font-medium text-gray-500 truncate">Wszystkie Wideo</dt>
+                        <dd class="text-3xl font-semibold text-gray-900">{{ stats.total_videos }}</dd>
+                    </dl>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div class="bg-white overflow-hidden shadow-lg rounded-lg hover:shadow-xl transition-shadow">
+        <div class="p-5">
+            <div class="flex items-center">
+                <div class="flex-shrink-0">
+                    <i class="fas fa-film text-3xl text-purple-500"></i>
+                </div>
+                <div class="ml-5 w-0 flex-1">
+                    <dl>
+                        <dt class="text-sm font-medium text-gray-500 truncate">Wszystkie Shorty</dt>
+                        <dd class="text-3xl font-semibold text-gray-900">{{ stats.total_shorts }}</dd>
+                    </dl>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div class="bg-white overflow-hidden shadow-lg rounded-lg hover:shadow-xl transition-shadow">
+        <div class="p-5">
+            <div class="flex items-center">
+                <div class="flex-shrink-0">
+                    <i class="fas fa-check-circle text-3xl text-green-500"></i>
+                </div>
+                <div class="ml-5 w-0 flex-1">
+                    <dl>
+                        <dt class="text-sm font-medium text-gray-500 truncate">Opublikowane</dt>
+                        <dd class="text-3xl font-semibold text-gray-900">{{ stats.published_shorts }}</dd>
+                    </dl>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div class="bg-white overflow-hidden shadow-lg rounded-lg hover:shadow-xl transition-shadow">
+        <div class="p-5">
+            <div class="flex items-center">
+                <div class="flex-shrink-0">
+                    <i class="fas fa-eye text-3xl text-red-500"></i>
+                </div>
+                <div class="ml-5 w-0 flex-1">
+                    <dl>
+                        <dt class="text-sm font-medium text-gray-500 truncate">Wyświetlenia</dt>
+                        <dd class="text-3xl font-semibold text-gray-900">{{ stats.total_views }}</dd>
+                    </dl>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Quick Actions -->
+<div class="bg-gradient-to-r from-red-600 to-red-700 rounded-lg shadow-xl p-6 mb-8">
+    <div class="flex items-center justify-between">
+        <div class="text-white">
+            <h3 class="text-2xl font-bold mb-2">Gotowy na upload?</h3>
+            <p class="text-red-100">Wgraj długie wideo, a my automatycznie potniemy je na shorty!</p>
+        </div>
+        <a href="{% url 'uploader:video_upload' %}" class="bg-white text-red-600 px-6 py-3 rounded-lg font-semibold hover:bg-gray-100 transition-colors">
+            <i class="fas fa-upload mr-2"></i>
+            Upload Wideo
+        </a>
+    </div>
+</div>
+
+<!-- YouTube Account Status -->
+<div class="bg-white shadow-lg rounded-lg p-6 mb-8">
+    <h3 class="text-lg font-semibold text-gray-900 mb-4">
+        <i class="fab fa-youtube text-red-600"></i> Status Konta YouTube
+    </h3>
+    {% if yt_account %}
+    <div class="flex items-center justify-between p-4 bg-green-50 rounded-lg">
+        <div class="flex items-center">
+            <i class="fas fa-check-circle text-green-500 text-2xl mr-3"></i>
+            <div>
+                <p class="font-medium text-gray-900">Połączone: {{ yt_account.channel_name }}</p>
+                <p class="text-sm text-gray-600">ID: {{ yt_account.channel_id }}</p>
+            </div>
+        </div>
+        <a href="{% url 'uploader:disconnect_youtube' %}" class="text-red-600 hover:text-red-700">
+            <i class="fas fa-unlink mr-1"></i> Odłącz
+        </a>
+    </div>
+    {% else %}
+    <div class="flex items-center justify-between p-4 bg-yellow-50 rounded-lg">
+        <div class="flex items-center">
+            <i class="fas fa-exclamation-triangle text-yellow-500 text-2xl mr-3"></i>
+            <p class="font-medium text-gray-900">Brak połączonego konta YouTube</p>
+        </div>
+        <a href="{% url 'uploader:connect_youtube' %}" class="bg-red-600 text-white px-4 py-2 rounded-lg hover:bg-red-700">
+            <i class="fab fa-youtube mr-1"></i> Połącz
+        </a>
+    </div>
+    {% endif %}
+</div>
+
+<div class="grid grid-cols-1 lg:grid-cols-2 gap-8">
+    <!-- Recent Videos -->
+    <div class="bg-white shadow-lg rounded-lg overflow-hidden">
+        <div class="px-6 py-4 border-b border-gray-200">
+            <h3 class="text-lg font-semibold text-gray-900">
+                <i class="fas fa-video mr-2"></i>Ostatnie Wideo
+            </h3>
+        </div>
+        <div class="divide-y divide-gray-200">
+            {% for video in recent_videos %}
+            <a href="{% url 'uploader:video_detail' video.pk %}" class="block px-6 py-4 hover:bg-gray-50 transition-colors">
+                <div class="flex items-center justify-between">
+                    <div class="flex-1">
+                        <p class="text-sm font-medium text-gray-900">{{ video.title|truncatechars:40 }}</p>
+                        <p class="text-sm text-gray-500">{{ video.created_at|date:"d.m.Y H:i" }}</p>
+                        {% if video.status == 'processing' and video.shorts_created > 0 %}
+                        <p class="text-xs text-blue-600 mt-1">
+                            <i class="fas fa-spinner fa-spin mr-1"></i>
+                            {{ video.shorts_created }}/{{ video.shorts_total }} shortów ({{ video.processing_progress }}%)
+                        </p>
+                        {% endif %}
+                    </div>
+                    <span class="px-3 py-1 text-xs font-semibold rounded-full
+                        {% if video.status == 'completed' %}bg-green-100 text-green-800
+                        {% elif video.status == 'processing' %}bg-blue-100 text-blue-800
+                        {% elif video.status == 'failed' %}bg-red-100 text-red-800
+                        {% else %}bg-yellow-100 text-yellow-800{% endif %}">
+                        {{ video.get_status_display }}
+                    </span>
+                </div>
+            </a>
+            {% empty %}
+            <div class="px-6 py-8 text-center text-gray-500">
+                <i class="fas fa-video text-4xl mb-2"></i>
+                <p>Brak wideo. Wgraj swoje pierwsze!</p>
+            </div>
+            {% endfor %}
+        </div>
+    </div>
+
+    <!-- Recent Shorts -->
+    <div class="bg-white shadow-lg rounded-lg overflow-hidden">
+        <div class="px-6 py-4 border-b border-gray-200">
+            <h3 class="text-lg font-semibold text-gray-900">
+                <i class="fas fa-film mr-2"></i>Ostatnie Shorty
+            </h3>
+        </div>
+        <div class="divide-y divide-gray-200">
+            {% for short in recent_shorts %}
+            <a href="{% url 'uploader:short_detail' short.pk %}" class="block px-6 py-4 hover:bg-gray-50 transition-colors">
+                <div class="flex items-center justify-between">
+                    <div class="flex-1">
+                        <p class="text-sm font-medium text-gray-900">{{ short.title|truncatechars:35 }}</p>
+                        <p class="text-sm text-gray-500">{{ short.created_at|date:"d.m.Y H:i" }}</p>
+                    </div>
+                    <span class="px-3 py-1 text-xs font-semibold rounded-full
+                        {% if short.upload_status == 'published' %}bg-green-100 text-green-800
+                        {% elif short.upload_status == 'uploading' %}bg-blue-100 text-blue-800
+                        {% elif short.upload_status == 'failed' %}bg-red-100 text-red-800
+                        {% else %}bg-yellow-100 text-yellow-800{% endif %}">
+                        {{ short.get_upload_status_display }}
+                    </span>
+                </div>
+            </a>
+            {% empty %}
+            <div class="px-6 py-8 text-center text-gray-500">
+                <i class="fas fa-film text-4xl mb-2"></i>
+                <p>Brak shortów. Wgraj wideo aby je wygenerować!</p>
+            </div>
+            {% endfor %}
+        </div>
+    </div>
+</div>
+{% endblock %}
