@@ -169,6 +169,6 @@ Czytelne URL-e dzięki wzorcom w `urls.py`.
 
 ---
 
-**Autor**: GitHub Copilot  
+**Autor**: Dawid Gulczyński, Kajetan Szlenzak 
 **Framework**: Django 5.2.7  
 **Język**: Python 3.x
