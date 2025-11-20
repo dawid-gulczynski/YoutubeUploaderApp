@@ -42,13 +42,6 @@ INSTALLED_APPS = [
     'django.contrib.sessions',
     'django.contrib.messages',
     'django.contrib.staticfiles',
-    'django.contrib.sites',
-    
-    # Third-party apps
-    'allauth',
-    'allauth.account',
-    'allauth.socialaccount',
-    'allauth.socialaccount.providers.google',
     
     # Custom apps
     'uploader.apps.UploaderConfig',
@@ -62,7 +55,6 @@ MIDDLEWARE = [
     'django.contrib.auth.middleware.AuthenticationMiddleware',
     'django.contrib.messages.middleware.MessageMiddleware',
     'django.middleware.clickjacking.XFrameOptionsMiddleware',
-    'allauth.account.middleware.AccountMiddleware',
 ]
 
 ROOT_URLCONF = 'app.urls'
@@ -189,54 +181,7 @@ LOGGING = {
     },
 }
 
-# Django-allauth settings
-SITE_ID = 1
-
 # Authentication backends
 AUTHENTICATION_BACKENDS = [
     'django.contrib.auth.backends.ModelBackend',
-    'allauth.account.auth_backends.AuthenticationBackend',
 ]
-
-# Allauth settings
-ACCOUNT_AUTHENTICATION_METHOD = 'username_email'  # Można logować się emailem lub username
-ACCOUNT_EMAIL_REQUIRED = True
-ACCOUNT_USERNAME_REQUIRED = True
-ACCOUNT_EMAIL_VERIFICATION = 'optional'  # 'mandatory', 'optional', lub 'none'
-ACCOUNT_SIGNUP_PASSWORD_ENTER_TWICE = True
-ACCOUNT_SESSION_REMEMBER = True
-ACCOUNT_UNIQUE_EMAIL = True
-
-# Custom adapters
-ACCOUNT_ADAPTER = 'uploader.adapters.CustomAccountAdapter'
-SOCIALACCOUNT_ADAPTER = 'uploader.adapters.CustomSocialAccountAdapter'
-
-# Social account settings
-SOCIALACCOUNT_AUTO_SIGNUP = True
-SOCIALACCOUNT_EMAIL_VERIFICATION = 'optional'
-SOCIALACCOUNT_QUERY_EMAIL = True
-
-# Google OAuth dla LOGOWANIA UŻYTKOWNIKÓW (nie do YouTube API!)
-# To są credentials SERWERA dla logowania przez Google
-SOCIALACCOUNT_PROVIDERS = {
-    'google': {
-        'SCOPE': [
-            'profile',
-            'email',
-        ],
-        'AUTH_PARAMS': {
-            'access_type': 'online',
-            'prompt': 'select_account',  # Zawsze pokazuj wybór konta
-        },
-        'APP': {
-            'client_id': os.getenv('GOOGLE_LOGIN_CLIENT_ID', ''),
-            'secret': os.getenv('GOOGLE_LOGIN_CLIENT_SECRET', ''),
-            'key': ''
-        }
-    }
-}
-
-# Redirect after login/logout
-LOGIN_REDIRECT_URL = 'uploader:dashboard'
-ACCOUNT_LOGOUT_REDIRECT_URL = 'uploader:login'
-LOGIN_URL = 'uploader:login'
