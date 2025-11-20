@@ -525,15 +525,73 @@ class ShortEditView(LoginRequiredMixin, UpdateView):
     def get_queryset(self):
         return Short.objects.filter(video__user=self.request.user)
     
+    def get_context_data(self, **kwargs):
+        context = super().get_context_data(**kwargs)
+        # Sprawdź czy to jest widok przed publikacją
+        context['is_publish_mode'] = self.request.GET.get('publish') == 'true'
+        return context
+    
+    def form_valid(self, form):
+        response = super().form_valid(form)
+        
+        # Sprawdź czy użytkownik kliknął "Publikuj"
+        if 'publish' in self.request.POST:
+            from .youtube_service import upload_short_to_youtube
+            
+            short = self.object
+            yt_account = YTAccount.objects.filter(user=self.request.user).first()
+            
+            if not yt_account:
+                messages.error(self.request, '❌ Musisz najpierw połączyć konto YouTube!')
+                return redirect('uploader:connect_youtube')
+            
+            # Ustaw status "uploading"
+            short.upload_status = 'uploading'
+            short.save()
+            
+            try:
+                # Upload na YouTube
+                result = upload_short_to_youtube(short, yt_account)
+                
+                if result['success']:
+                    # Sukces - zapisz dane YouTube
+                    short.upload_status = 'published'
+                    short.yt_video_id = result['video_id']
+                    short.yt_url = result['video_url']
+                    short.published_at = timezone.now()
+                    short.save()
+                    
+                    messages.success(
+                        self.request,
+                        f'✅ Short został opublikowany na YouTube! <a href="{result["video_url"]}" target="_blank" class="underline">Zobacz na YouTube</a>',
+                        extra_tags='safe'
+                    )
+                else:
+                    # Błąd uploadu
+                    short.upload_status = 'failed'
+                    short.save()
+                    
+                    messages.error(
+                        self.request,
+                        f'❌ Błąd podczas publikacji: {result["error"]}'
+                    )
+            except Exception as e:
+                logger.error(f'Error publishing short {short.pk}: {str(e)}')
+                short.upload_status = 'failed'
+                short.save()
+                messages.error(self.request, f'❌ Błąd podczas publikacji: {str(e)}')
+        else:
+            messages.success(self.request, '✅ Zmiany zostały zapisane.')
+        
+        return response
+    
     def get_success_url(self):
         return reverse_lazy('uploader:short_detail', kwargs={'pk': self.object.pk})
 
 
 @login_required
 def short_publish(request, pk):
-    """Publikuje short na YouTube"""
-    from .youtube_service import upload_short_to_youtube
-    
+    """Przekierowuje do edycji shorta przed publikacją"""
     short = get_object_or_404(Short, pk=pk, video__user=request.user)
     
     # Sprawdź czy użytkownik ma połączone konto YouTube
@@ -548,46 +606,11 @@ def short_publish(request, pk):
         messages.warning(request, 'Ten short jest już opublikowany na YouTube!')
         return redirect('uploader:short_detail', pk=pk)
     
-    # Ustaw status "uploading"
-    short.upload_status = 'uploading'
-    short.save()
+    # Dodaj informację o trybie publikacji
+    messages.info(request, 'ℹ️ Sprawdź i edytuj metadane przed publikacją na YouTube.')
     
-    try:
-        # Upload na YouTube
-        result = upload_short_to_youtube(short, yt_account)
-        
-        if result['success']:
-            # Sukces - zapisz dane YouTube
-            short.upload_status = 'published'
-            short.yt_video_id = result['video_id']
-            short.yt_url = result['video_url']
-            short.published_at = timezone.now()
-            short.save()
-            
-            messages.success(
-                request,
-                f'✅ Short został opublikowany na YouTube! <a href="{result["video_url"]}" target="_blank" class="underline">Zobacz na YouTube</a>',
-                extra_tags='safe'
-            )
-        else:
-            # Błąd uploadu
-            short.upload_status = 'failed'
-            short.save()
-            
-            messages.error(
-                request,
-                f'❌ Błąd podczas publikacji: {result["error"]}'
-            )
-    
-    except Exception as e:
-        # Nieoczekiwany błąd
-        short.upload_status = 'failed'
-        short.save()
-        
-        messages.error(request, f'Wystąpił błąd: {str(e)}')
-        logger.error(f'Error publishing short {pk}: {str(e)}')
-    
-    return redirect('uploader:short_detail', pk=pk)
+    # Przekieruj do edycji shorta z parametrem publikacji
+    return redirect(f"{reverse('uploader:short_edit', kwargs={'pk': pk})}?publish=true")
 
 
 @login_required
