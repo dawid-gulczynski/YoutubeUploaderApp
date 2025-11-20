@@ -51,6 +51,7 @@ urlpatterns = [
     
     # Zarządzanie użytkownikami (Moderator & Admin)
     path('users/', views.user_management_list, name='user_management_list'),
+    path('users/create/', views.user_management_create, name='user_management_create'),
     path('users/<int:user_id>/', views.user_management_detail, name='user_management_detail'),
     path('users/<int:user_id>/edit/', views.user_management_edit, name='user_management_edit'),
     path('users/<int:user_id>/delete/', views.user_management_delete, name='user_management_delete'),

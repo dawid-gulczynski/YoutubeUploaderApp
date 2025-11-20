@@ -17,6 +17,10 @@
             </h2>
             <p class="text-sm text-gray-500 mt-1">Zarządzaj kontami użytkowników i monitoruj ich aktywność</p>
         </div>
+        <a href="{% url 'uploader:user_management_create' %}" 
+           class="px-6 py-3 {% if is_admin %}bg-red-600 hover:bg-red-700{% else %}bg-blue-600 hover:bg-blue-700{% endif %} text-white rounded-lg transition shadow-lg font-medium">
+            <i class="fas fa-user-plus mr-2"></i>Dodaj użytkownika
+        </a>
     </div>
     
     <!-- Filtrowanie -->

@@ -240,3 +240,144 @@ class AdminUserEditForm(forms.ModelForm):
             'is_staff': 'Dostęp do panelu Django Admin',
             'is_superuser': 'Superuser (pełne uprawnienia)'
         }
+
+
+class ModeratorUserCreateForm(forms.ModelForm):
+    """Formularz do tworzenia użytkownika przez moderatora (tylko rola user)"""
+    password1 = forms.CharField(
+        label='Hasło',
+        widget=forms.PasswordInput(attrs={
+            'class': 'w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent',
+            'placeholder': 'Hasło'
+        })
+    )
+    password2 = forms.CharField(
+        label='Potwierdź hasło',
+        widget=forms.PasswordInput(attrs={
+            'class': 'w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent',
+            'placeholder': 'Potwierdź hasło'
+        })
+    )
+    
+    class Meta:
+        model = User
+        fields = ['username', 'email', 'first_name', 'last_name', 'is_active']
+        widgets = {
+            'username': forms.TextInput(attrs={
+                'class': 'w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent',
+                'placeholder': 'Nazwa użytkownika'
+            }),
+            'email': forms.EmailInput(attrs={
+                'class': 'w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent',
+                'placeholder': 'Adres email'
+            }),
+            'first_name': forms.TextInput(attrs={
+                'class': 'w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent',
+                'placeholder': 'Imię'
+            }),
+            'last_name': forms.TextInput(attrs={
+                'class': 'w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent',
+                'placeholder': 'Nazwisko'
+            }),
+            'is_active': forms.CheckboxInput(attrs={
+                'class': 'w-4 h-4 text-blue-600 border-gray-300 rounded focus:ring-blue-500'
+            })
+        }
+    
+    def clean_password2(self):
+        password1 = self.cleaned_data.get('password1')
+        password2 = self.cleaned_data.get('password2')
+        if password1 and password2 and password1 != password2:
+            raise forms.ValidationError('Hasła nie są identyczne.')
+        return password2
+    
+    def save(self, commit=True):
+        user = super().save(commit=False)
+        user.set_password(self.cleaned_data['password1'])
+        user.auth_provider = 'local'
+        user.email_verified = True
+        
+        # Przypisz rolę 'user'
+        try:
+            user_role = Role.objects.get(symbol='user')
+            user.role = user_role
+        except Role.DoesNotExist:
+            pass
+        
+        if commit:
+            user.save()
+        return user
+
+
+class AdminUserCreateForm(forms.ModelForm):
+    """Formularz do tworzenia użytkownika przez administratora (z wyborem roli)"""
+    password1 = forms.CharField(
+        label='Hasło',
+        widget=forms.PasswordInput(attrs={
+            'class': 'w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-red-500 focus:border-transparent',
+            'placeholder': 'Hasło'
+        })
+    )
+    password2 = forms.CharField(
+        label='Potwierdź hasło',
+        widget=forms.PasswordInput(attrs={
+            'class': 'w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-red-500 focus:border-transparent',
+            'placeholder': 'Potwierdź hasło'
+        })
+    )
+    
+    class Meta:
+        model = User
+        fields = ['username', 'email', 'first_name', 'last_name', 'role', 'is_active', 'is_staff', 'is_superuser']
+        widgets = {
+            'username': forms.TextInput(attrs={
+                'class': 'w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-red-500 focus:border-transparent',
+                'placeholder': 'Nazwa użytkownika'
+            }),
+            'email': forms.EmailInput(attrs={
+                'class': 'w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-red-500 focus:border-transparent',
+                'placeholder': 'Adres email'
+            }),
+            'first_name': forms.TextInput(attrs={
+                'class': 'w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-red-500 focus:border-transparent',
+                'placeholder': 'Imię'
+            }),
+            'last_name': forms.TextInput(attrs={
+                'class': 'w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-red-500 focus:border-transparent',
+                'placeholder': 'Nazwisko'
+            }),
+            'role': forms.Select(attrs={
+                'class': 'w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-red-500 focus:border-transparent'
+            }),
+            'is_active': forms.CheckboxInput(attrs={
+                'class': 'w-4 h-4 text-red-600 border-gray-300 rounded focus:ring-red-500'
+            }),
+            'is_staff': forms.CheckboxInput(attrs={
+                'class': 'w-4 h-4 text-red-600 border-gray-300 rounded focus:ring-red-500'
+            }),
+            'is_superuser': forms.CheckboxInput(attrs={
+                'class': 'w-4 h-4 text-red-600 border-gray-300 rounded focus:ring-red-500'
+            })
+        }
+        labels = {
+            'is_active': 'Aktywny',
+            'is_staff': 'Dostęp do panelu Django Admin',
+            'is_superuser': 'Superuser (pełne uprawnienia)'
+        }
+    
+    def clean_password2(self):
+        password1 = self.cleaned_data.get('password1')
+        password2 = self.cleaned_data.get('password2')
+        if password1 and password2 and password1 != password2:
+            raise forms.ValidationError('Hasła nie są identyczne.')
+        return password2
+    
+    def save(self, commit=True):
+        user = super().save(commit=False)
+        user.set_password(self.cleaned_data['password1'])
+        user.auth_provider = 'local'
+        user.email_verified = True
+        
+        if commit:
+            user.save()
+        return user

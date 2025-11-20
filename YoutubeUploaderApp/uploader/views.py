@@ -16,7 +16,7 @@ import threading
 import logging
 
 from .models import User, Role, Video, Short, YTAccount
-from .forms import UserRegistrationForm, UserLoginForm, VideoUploadForm, ShortEditForm, UserProfileForm, ModeratorUserEditForm, AdminUserEditForm
+from .forms import UserRegistrationForm, UserLoginForm, VideoUploadForm, ShortEditForm, UserProfileForm, ModeratorUserEditForm, AdminUserEditForm, ModeratorUserCreateForm, AdminUserCreateForm
 from .video_processing import process_video_async, check_ffmpeg_installed
 
 logger = logging.getLogger(__name__)
@@ -1258,6 +1258,36 @@ def user_management_list(request):
     }
     
     return render(request, 'uploader/user_management/user_list.html', context)
+
+
+@login_required
+def user_management_create(request):
+    """Tworzenie nowego użytkownika"""
+    if not request.user.is_moderator():
+        messages.error(request, '❌ Brak dostępu do zarządzania użytkownikami.')
+        return redirect('uploader:dashboard')
+    
+    # Wybierz odpowiedni formularz
+    if request.user.is_admin_user():
+        FormClass = AdminUserCreateForm
+    else:
+        FormClass = ModeratorUserCreateForm
+    
+    if request.method == 'POST':
+        form = FormClass(request.POST)
+        if form.is_valid():
+            user = form.save()
+            messages.success(request, f'✅ Użytkownik "{user.username}" został utworzony.')
+            return redirect('uploader:user_management_detail', user_id=user.id)
+    else:
+        form = FormClass()
+    
+    context = {
+        'form': form,
+        'is_admin': request.user.is_admin_user(),
+    }
+    
+    return render(request, 'uploader/user_management/user_create.html', context)
 
 
 @login_required
