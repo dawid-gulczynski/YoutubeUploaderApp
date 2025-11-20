@@ -309,6 +309,10 @@ def dashboard_view(request):
         videos = Video.objects.filter(user=user)
         shorts = Short.objects.filter(video__user=user)
         
+        # Oblicz statystyki
+        from django.db.models import Sum
+        total_views = shorts.filter(upload_status='published').aggregate(Sum('views'))['views__sum'] or 0
+        
         stats = {
             'total_videos': videos.count(),
             'processing_videos': videos.filter(status='processing').count(),
@@ -316,7 +320,7 @@ def dashboard_view(request):
             'total_shorts': shorts.count(),
             'published_shorts': shorts.filter(upload_status='published').count(),
             'pending_shorts': shorts.filter(upload_status='pending').count(),
-            'total_views': shorts.aggregate(total=Sum('views'))['total'] or 0,
+            'total_views': total_views,
         }
         
         recent_videos = videos.order_by('-created_at')[:5]
@@ -328,14 +332,13 @@ def dashboard_view(request):
             'recent_videos': recent_videos,
             'recent_shorts': recent_shorts,
             'yt_account': yt_account,
-            'ffmpeg_installed': check_ffmpeg_installed(),
         }
         
         return render(request, 'uploader/dashboard.html', context)
     except Exception as e:
         logger.error(f'Error loading dashboard for user {request.user.id}: {str(e)}')
         messages.error(request, '❌ Wystąpił błąd podczas ładowania dashboardu.')
-        return render(request, 'uploader/dashboard.html', {'stats': {}, 'ffmpeg_installed': False})
+        return render(request, 'uploader/dashboard.html', {'stats': {}})
 
 
 # ============================================================================

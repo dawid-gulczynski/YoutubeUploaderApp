@@ -4,33 +4,6 @@
 {% block page_title %}Dashboard{% endblock %}
 
 {% block content %}
-<!-- FFmpeg Warning -->
-{% if not ffmpeg_installed %}
-<div class="bg-red-50 border-l-4 border-red-400 p-4 mb-6">
-    <div class="flex">
-        <div class="flex-shrink-0">
-            <i class="fas fa-exclamation-triangle text-red-400 text-2xl"></i>
-        </div>
-        <div class="ml-3 flex-1">
-            <h3 class="text-sm font-medium text-red-800">FFmpeg nie jest zainstalowany!</h3>
-            <div class="mt-2 text-sm text-red-700">
-                <p>Automatyczne cięcie wideo na shorty wymaga zainstalowanego FFmpeg.</p>
-                <p class="mt-2">
-                    <strong>Instalacja (PowerShell jako Administrator):</strong>
-                </p>
-                <code class="block bg-red-100 p-2 mt-1 rounded">choco install ffmpeg</code>
-                <p class="mt-2">
-                    <a href="https://chocolatey.org/install" target="_blank" class="underline font-semibold">
-                        Instrukcje instalacji Chocolatey <i class="fas fa-external-link-alt text-xs"></i>
-                    </a>
-                    lub zobacz plik <code>FFMPEG_INSTALL.md</code> w katalogu projektu.
-                </p>
-            </div>
-        </div>
-    </div>
-</div>
-{% endif %}
-
 <!-- Stats Cards -->
 <div class="grid grid-cols-1 gap-5 sm:grid-cols-2 lg:grid-cols-4 mb-8">
     <div class="bg-white overflow-hidden shadow-lg rounded-lg hover:shadow-xl transition-shadow">
@@ -118,6 +91,7 @@
         <i class="fab fa-youtube text-red-600"></i> Status Konta YouTube
     </h3>
     {% if yt_account %}
+    {% if yt_account.is_active %}
     <div class="flex items-center justify-between p-4 bg-green-50 rounded-lg">
         <div class="flex items-center">
             <i class="fas fa-check-circle text-green-500 text-2xl mr-3"></i>
@@ -126,10 +100,24 @@
                 <p class="text-sm text-gray-600">ID: {{ yt_account.channel_id }}</p>
             </div>
         </div>
-        <a href="{% url 'uploader:disconnect_youtube' %}" class="text-red-600 hover:text-red-700">
-            <i class="fas fa-unlink mr-1"></i> Odłącz
+        <a href="{% url 'uploader:connect_youtube' %}" class="text-blue-600 hover:text-blue-700">
+            <i class="fas fa-cog mr-1"></i> Zarządzaj
         </a>
     </div>
+    {% else %}
+    <div class="flex items-center justify-between p-4 bg-red-50 rounded-lg">
+        <div class="flex items-center">
+            <i class="fas fa-times-circle text-red-500 text-2xl mr-3"></i>
+            <div>
+                <p class="font-medium text-gray-900">Konto nieaktywne: {{ yt_account.channel_name }}</p>
+                <p class="text-sm text-red-600">Wymagane ponowne połączenie</p>
+            </div>
+        </div>
+        <a href="{% url 'uploader:connect_youtube' %}" class="bg-red-600 text-white px-4 py-2 rounded-lg hover:bg-red-700">
+            <i class="fas fa-sync mr-1"></i> Połącz ponownie
+        </a>
+    </div>
+    {% endif %}
     {% else %}
     <div class="flex items-center justify-between p-4 bg-yellow-50 rounded-lg">
         <div class="flex items-center">
