@@ -23,10 +23,10 @@ SCOPES = [
 
 def refresh_credentials_if_needed(yt_account):
     """
-    Odświeża credentials jeśli wygasły
+    Odświeża credentials jeśli wygasły - używa credentials dostarczone przez użytkownika
     
     Args:
-        yt_account: Obiekt YTAccount
+        yt_account: Obiekt YTAccount z credentials użytkownika
         
     Returns:
         bool: True jeśli token jest ważny lub został odświeżony
@@ -36,27 +36,17 @@ def refresh_credentials_if_needed(yt_account):
         if yt_account.token_expiry and timezone.now() >= yt_account.token_expiry:
             logger.info(f"Token expired for {yt_account.channel_name}, refreshing...")
             
-            # Pobierz client_secrets dla refresh
-            client_secrets_path = os.path.join(settings.BASE_DIR, 'client_secrets.json')
-            
-            if not os.path.exists(client_secrets_path):
-                logger.error("client_secrets.json not found")
+            if not yt_account.refresh_token:
+                logger.error("No refresh token available")
                 return False
             
-            # Załaduj dane klienta
-            import json
-            with open(client_secrets_path) as f:
-                client_config = json.load(f)
-                client_id = client_config['web']['client_id']
-                client_secret = client_config['web']['client_secret']
-            
-            # Utwórz credentials z refresh token
+            # Utwórz credentials z danymi użytkownika
             credentials = Credentials(
                 token=yt_account.access_token,
                 refresh_token=yt_account.refresh_token,
                 token_uri="https://oauth2.googleapis.com/token",
-                client_id=client_id,
-                client_secret=client_secret,
+                client_id=yt_account.client_id,
+                client_secret=yt_account.client_secret,
                 scopes=SCOPES
             )
             
@@ -80,10 +70,10 @@ def refresh_credentials_if_needed(yt_account):
 
 def get_authenticated_service(yt_account):
     """
-    Tworzy authenticated YouTube service
+    Tworzy authenticated YouTube service - używa credentials użytkownika
     
     Args:
-        yt_account: Obiekt YTAccount z tokenami OAuth
+        yt_account: Obiekt YTAccount z tokenami OAuth i credentials użytkownika
     
     Returns:
         googleapiclient.discovery.Resource: YouTube service object
@@ -92,21 +82,13 @@ def get_authenticated_service(yt_account):
     if not refresh_credentials_if_needed(yt_account):
         raise Exception("Nie udało się odświeżyć tokena. Połącz konto ponownie.")
     
-    # Pobierz client config
-    client_secrets_path = os.path.join(settings.BASE_DIR, 'client_secrets.json')
-    import json
-    with open(client_secrets_path) as f:
-        client_config = json.load(f)
-        client_id = client_config['web']['client_id']
-        client_secret = client_config['web']['client_secret']
-    
-    # Utwórz credentials
+    # Utwórz credentials z danych użytkownika
     credentials = Credentials(
         token=yt_account.access_token,
         refresh_token=yt_account.refresh_token,
         token_uri="https://oauth2.googleapis.com/token",
-        client_id=client_id,
-        client_secret=client_secret,
+        client_id=yt_account.client_id,
+        client_secret=yt_account.client_secret,
         scopes=SCOPES
     )
     

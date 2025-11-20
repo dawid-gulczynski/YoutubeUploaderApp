@@ -33,12 +33,20 @@ def register_view(request):
     if request.method == 'POST':
         form = UserRegistrationForm(request.POST)
         if form.is_valid():
-            user = form.save(commit=False)
-            user_role = Role.objects.get(symbol='user')
-            user.role = user_role
-            user.save()
-            messages.success(request, 'Konto zostało utworzone! Możesz się teraz zalogować.')
-            return redirect('uploader:login')
+            try:
+                user = form.save(commit=False)
+                # Pobierz lub utwórz rolę 'user' jeśli nie istnieje
+                user_role, created = Role.objects.get_or_create(
+                    symbol='user',
+                    defaults={'name': 'Użytkownik'}
+                )
+                user.role = user_role
+                user.save()
+                messages.success(request, '✅ Konto zostało utworzone! Możesz się teraz zalogować.')
+                return redirect('uploader:login')
+            except Exception as e:
+                logger.error(f'Error during user registration: {str(e)}')
+                messages.error(request, f'❌ Błąd podczas rejestracji: {str(e)}')
     else:
         form = UserRegistrationForm()
     
@@ -53,13 +61,21 @@ def login_view(request):
     if request.method == 'POST':
         form = UserLoginForm(request, data=request.POST)
         if form.is_valid():
-            username = form.cleaned_data.get('username')
-            password = form.cleaned_data.get('password')
-            user = authenticate(username=username, password=password)
-            if user is not None:
-                login(request, user)
-                messages.success(request, f'Witaj, {user.username}!')
-                return redirect('uploader:dashboard')
+            try:
+                username = form.cleaned_data.get('username')
+                password = form.cleaned_data.get('password')
+                user = authenticate(username=username, password=password)
+                if user is not None:
+                    login(request, user)
+                    messages.success(request, f'✅ Witaj, {user.username}!')
+                    return redirect('uploader:dashboard')
+                else:
+                    messages.error(request, '❌ Nieprawidłowa nazwa użytkownika lub hasło.')
+            except Exception as e:
+                logger.error(f'Error during login: {str(e)}')
+                messages.error(request, '❌ Wystąpił błąd podczas logowania. Spróbuj ponownie.')
+        else:
+            messages.error(request, '❌ Nieprawidłowe dane logowania.')
     else:
         form = UserLoginForm()
     
@@ -80,9 +96,15 @@ def profile_edit_view(request):
     if request.method == 'POST':
         form = UserProfileForm(request.POST, instance=request.user)
         if form.is_valid():
-            form.save()
-            messages.success(request, 'Profil został zaktualizowany.')
-            return redirect('uploader:profile_edit')
+            try:
+                form.save()
+                messages.success(request, '✅ Profil został zaktualizowany.')
+                return redirect('uploader:profile_edit')
+            except Exception as e:
+                logger.error(f'Error updating profile for user {request.user.id}: {str(e)}')
+                messages.error(request, f'❌ Błąd podczas aktualizacji profilu: {str(e)}')
+        else:
+            messages.error(request, '❌ Formularz zawiera błędy. Sprawdź wprowadzone dane.')
     else:
         form = UserProfileForm(instance=request.user)
     
@@ -96,33 +118,38 @@ def profile_edit_view(request):
 @login_required
 def dashboard_view(request):
     """Główny dashboard"""
-    user = request.user
-    videos = Video.objects.filter(user=user)
-    shorts = Short.objects.filter(video__user=user)
-    
-    stats = {
-        'total_videos': videos.count(),
-        'processing_videos': videos.filter(status='processing').count(),
-        'completed_videos': videos.filter(status='completed').count(),
-        'total_shorts': shorts.count(),
-        'published_shorts': shorts.filter(upload_status='published').count(),
-        'pending_shorts': shorts.filter(upload_status='pending').count(),
-        'total_views': shorts.aggregate(total=Sum('views'))['total'] or 0,
-    }
-    
-    recent_videos = videos.order_by('-created_at')[:5]
-    recent_shorts = shorts.order_by('-created_at')[:10]
-    yt_account = YTAccount.objects.filter(user=user).first()
-    
-    context = {
-        'stats': stats,
-        'recent_videos': recent_videos,
-        'recent_shorts': recent_shorts,
-        'yt_account': yt_account,
-        'ffmpeg_installed': check_ffmpeg_installed(),
-    }
-    
-    return render(request, 'uploader/dashboard.html', context)
+    try:
+        user = request.user
+        videos = Video.objects.filter(user=user)
+        shorts = Short.objects.filter(video__user=user)
+        
+        stats = {
+            'total_videos': videos.count(),
+            'processing_videos': videos.filter(status='processing').count(),
+            'completed_videos': videos.filter(status='completed').count(),
+            'total_shorts': shorts.count(),
+            'published_shorts': shorts.filter(upload_status='published').count(),
+            'pending_shorts': shorts.filter(upload_status='pending').count(),
+            'total_views': shorts.aggregate(total=Sum('views'))['total'] or 0,
+        }
+        
+        recent_videos = videos.order_by('-created_at')[:5]
+        recent_shorts = shorts.order_by('-created_at')[:10]
+        yt_account = YTAccount.objects.filter(user=user).first()
+        
+        context = {
+            'stats': stats,
+            'recent_videos': recent_videos,
+            'recent_shorts': recent_shorts,
+            'yt_account': yt_account,
+            'ffmpeg_installed': check_ffmpeg_installed(),
+        }
+        
+        return render(request, 'uploader/dashboard.html', context)
+    except Exception as e:
+        logger.error(f'Error loading dashboard for user {request.user.id}: {str(e)}')
+        messages.error(request, '❌ Wystąpił błąd podczas ładowania dashboardu.')
+        return render(request, 'uploader/dashboard.html', {'stats': {}, 'ffmpeg_installed': False})
 
 
 # ============================================================================
@@ -158,20 +185,26 @@ class VideoUploadView(LoginRequiredMixin, CreateView):
         return context
     
     def form_valid(self, form):
-        video = form.save(commit=False)
-        video.user = self.request.user
-        video.status = 'uploaded'
-        video.save()
-        
-        if not check_ffmpeg_installed():
-            messages.warning(self.request, 'Wideo zostało wgrane, ale FFmpeg nie jest zainstalowany. Shorty nie zostaną wygenerowane. Zobacz FFMPEG_INSTALL.md')
-        else:
-            messages.success(self.request, 'Wideo zostało wgrane! Rozpoczynam przetwarzanie...')
-            crop_mode = self.request.POST.get('crop_mode', 'center')
-            thread = threading.Thread(target=process_video_async, args=(video.id, crop_mode))
-            thread.start()
-        
-        return redirect('uploader:video_detail', pk=video.pk)
+        try:
+            video = form.save(commit=False)
+            video.user = self.request.user
+            video.status = 'uploaded'
+            video.save()
+            
+            if not check_ffmpeg_installed():
+                messages.warning(self.request, '⚠️ Wideo zostało wgrane, ale FFmpeg nie jest zainstalowany. Shorty nie zostaną wygenerowane. Zobacz FFMPEG_INSTALL.md')
+            else:
+                messages.success(self.request, '✅ Wideo zostało wgrane! Rozpoczynam przetwarzanie...')
+                crop_mode = self.request.POST.get('crop_mode', 'center')
+                thread = threading.Thread(target=process_video_async, args=(video.id, crop_mode))
+                thread.daemon = True
+                thread.start()
+            
+            return redirect('uploader:video_detail', pk=video.pk)
+        except Exception as e:
+            logger.error(f'Error uploading video: {str(e)}')
+            messages.error(self.request, f'❌ Błąd podczas wgrywania wideo: {str(e)}')
+            return redirect('uploader:video_upload')
 
 
 class VideoDetailView(LoginRequiredMixin, DetailView):
@@ -192,9 +225,15 @@ class VideoDetailView(LoginRequiredMixin, DetailView):
 def video_delete(request, pk):
     video = get_object_or_404(Video, pk=pk, user=request.user)
     if request.method == 'POST':
-        video.delete()
-        messages.success(request, 'Wideo zostało usunięte.')
-        return redirect('uploader:video_list')
+        try:
+            video_title = video.title
+            video.delete()
+            messages.success(request, f'✅ Wideo "{video_title}" zostało usunięte.')
+            return redirect('uploader:video_list')
+        except Exception as e:
+            logger.error(f'Error deleting video {pk}: {str(e)}')
+            messages.error(request, f'❌ Błąd podczas usuwania wideo: {str(e)}')
+            return redirect('uploader:video_detail', pk=pk)
     return render(request, 'uploader/video/video_confirm_delete.html', {'video': video})
 
 
@@ -302,10 +341,16 @@ def short_publish(request, pk):
 def short_delete(request, pk):
     short = get_object_or_404(Short, pk=pk, video__user=request.user)
     if request.method == 'POST':
-        video_id = short.video.id
-        short.delete()
-        messages.success(request, 'Short został usunięty.')
-        return redirect('uploader:video_detail', pk=video_id)
+        try:
+            video_id = short.video.id
+            short_title = short.title
+            short.delete()
+            messages.success(request, f'✅ Short "{short_title}" został usunięty.')
+            return redirect('uploader:video_detail', pk=video_id)
+        except Exception as e:
+            logger.error(f'Error deleting short {pk}: {str(e)}')
+            messages.error(request, f'❌ Błąd podczas usuwania shorta: {str(e)}')
+            return redirect('uploader:short_detail', pk=pk)
     return render(request, 'uploader/short/short_confirm_delete.html', {'short': short})
 
 
@@ -315,31 +360,70 @@ def short_delete(request, pk):
 
 @login_required
 def connect_youtube(request):
+    """Widok połączenia konta YouTube - użytkownik dostarcza własne Google API credentials"""
     yt_account = YTAccount.objects.filter(user=request.user).first()
+    
+    if request.method == 'POST' and 'disconnect' in request.POST:
+        # Odłączanie konta
+        return disconnect_youtube(request)
+    
     return render(request, 'uploader/youtube/connect.html', {'yt_account': yt_account})
 
 
 @login_required
 def youtube_oauth(request):
-    """Inicjuje proces OAuth 2.0 z Google/YouTube"""
+    """Krok 1: Użytkownik dostarcza swoje Google API credentials (Client ID i Client Secret)"""
+    yt_account = YTAccount.objects.filter(user=request.user).first()
+    
+    if request.method == 'POST':
+        client_id = request.POST.get('client_id', '').strip()
+        client_secret = request.POST.get('client_secret', '').strip()
+        
+        if not client_id or not client_secret:
+            messages.error(request, '❌ Musisz podać Client ID i Client Secret.')
+            return redirect('uploader:connect_youtube')
+        
+        # Zapisz credentials w sesji do użycia w callback
+        request.session['yt_client_id'] = client_id
+        request.session['yt_client_secret'] = client_secret
+        
+        # Przekieruj do procesu OAuth
+        return redirect('uploader:youtube_oauth_start')
+    
+    return redirect('uploader:connect_youtube')
+
+
+@login_required
+def youtube_oauth_start(request):
+    """Krok 2: Inicjuje proces OAuth 2.0 z credentials użytkownika"""
     from google_auth_oauthlib.flow import Flow
-    from django.conf import settings
+    from django.urls import reverse
+    import json
+    import tempfile
     import os
     
-    # Sprawdź czy plik client_secrets.json istnieje
-    client_secrets_path = os.path.join(settings.BASE_DIR, 'client_secrets.json')
+    client_id = request.session.get('yt_client_id')
+    client_secret = request.session.get('yt_client_secret')
     
-    if not os.path.exists(client_secrets_path):
-        messages.error(
-            request, 
-            'Brak pliku client_secrets.json! Zobacz plik GOOGLE_API_SETUP.md aby skonfigurować Google API.'
-        )
+    if not client_id or not client_secret:
+        messages.error(request, '❌ Brak credentials. Rozpocznij od początku.')
         return redirect('uploader:connect_youtube')
     
     try:
-        # Utwórz OAuth flow
-        flow = Flow.from_client_secrets_file(
-            client_secrets_path,
+        # Utwórz tymczasowy plik client_secrets dla tego użytkownika
+        client_config = {
+            "web": {
+                "client_id": client_id,
+                "client_secret": client_secret,
+                "auth_uri": "https://accounts.google.com/o/oauth2/auth",
+                "token_uri": "https://oauth2.googleapis.com/token",
+                "redirect_uris": [request.build_absolute_uri(reverse('uploader:youtube_oauth_callback'))]
+            }
+        }
+        
+        # Utwórz OAuth flow z credentials użytkownika
+        flow = Flow.from_client_config(
+            client_config,
             scopes=[
                 'https://www.googleapis.com/auth/youtube.upload',
                 'https://www.googleapis.com/auth/youtube.readonly',
@@ -350,43 +434,51 @@ def youtube_oauth(request):
         
         # Generuj authorization URL
         authorization_url, state = flow.authorization_url(
-            access_type='offline',  # Offline access dla refresh token
+            access_type='offline',
             include_granted_scopes='true',
-            prompt='consent'  # Zawsze pytaj o consent aby dostać refresh token
+            prompt='consent'
         )
         
-        # Zapisz state w sesji dla weryfikacji w callback
+        # Zapisz state w sesji
         request.session['oauth_state'] = state
         
-        # Przekieruj użytkownika do Google
         return redirect(authorization_url)
         
     except Exception as e:
-        messages.error(request, f'Błąd inicjalizacji OAuth: {str(e)}')
         logger.error(f'OAuth initialization error: {str(e)}')
+        messages.error(request, f'❌ Błąd inicjalizacji OAuth: {str(e)}. Sprawdź czy Client ID i Secret są poprawne.')
         return redirect('uploader:connect_youtube')
 
 
 @login_required
 def youtube_oauth_callback(request):
-    """Callback po autoryzacji OAuth"""
+    """Krok 3: Callback po autoryzacji OAuth - zapisz tokeny użytkownika"""
     from google_auth_oauthlib.flow import Flow
     from googleapiclient.discovery import build
-    from django.conf import settings
-    import os
     
-    # Pobierz state z sesji
     state = request.session.get('oauth_state')
-    if not state:
-        messages.error(request, 'Błąd: Brak state w sesji. Spróbuj ponownie.')
+    client_id = request.session.get('yt_client_id')
+    client_secret = request.session.get('yt_client_secret')
+    
+    if not state or not client_id or not client_secret:
+        messages.error(request, '❌ Błąd: Brak danych sesji. Spróbuj ponownie.')
         return redirect('uploader:connect_youtube')
     
-    client_secrets_path = os.path.join(settings.BASE_DIR, 'client_secrets.json')
-    
     try:
+        # Utwórz client config
+        client_config = {
+            "web": {
+                "client_id": client_id,
+                "client_secret": client_secret,
+                "auth_uri": "https://accounts.google.com/o/oauth2/auth",
+                "token_uri": "https://oauth2.googleapis.com/token",
+                "redirect_uris": [request.build_absolute_uri(reverse('uploader:youtube_oauth_callback'))]
+            }
+        }
+        
         # Utwórz OAuth flow ze state
-        flow = Flow.from_client_secrets_file(
-            client_secrets_path,
+        flow = Flow.from_client_config(
+            client_config,
             scopes=[
                 'https://www.googleapis.com/auth/youtube.upload',
                 'https://www.googleapis.com/auth/youtube.readonly',
@@ -396,13 +488,11 @@ def youtube_oauth_callback(request):
             redirect_uri=request.build_absolute_uri(reverse('uploader:youtube_oauth_callback'))
         )
         
-        # Fetch token używając authorization response
+        # Fetch token
         flow.fetch_token(authorization_response=request.build_absolute_uri())
-        
-        # Pobierz credentials
         credentials = flow.credentials
         
-        # Pobierz informacje o kanale YouTube
+        # Pobierz informacje o kanale
         youtube = build('youtube', 'v3', credentials=credentials)
         channel_response = youtube.channels().list(
             part='snippet,contentDetails,statistics',
@@ -410,43 +500,40 @@ def youtube_oauth_callback(request):
         ).execute()
         
         if not channel_response.get('items'):
-            messages.error(request, 'Nie znaleziono kanału YouTube dla tego konta.')
+            messages.error(request, '❌ Nie znaleziono kanału YouTube dla tego konta.')
             return redirect('uploader:connect_youtube')
         
         channel = channel_response['items'][0]
         channel_id = channel['id']
         channel_name = channel['snippet']['title']
         
-        # Zapisz lub zaktualizuj YTAccount
-        yt_account, created = YTAccount.objects.get_or_create(
+        # Zapisz lub zaktualizuj YTAccount z credentials użytkownika
+        yt_account, created = YTAccount.objects.update_or_create(
             user=request.user,
-            channel_id=channel_id,
             defaults={
+                'channel_id': channel_id,
                 'channel_name': channel_name,
+                'client_id': client_id,
+                'client_secret': client_secret,
                 'access_token': credentials.token,
-                'refresh_token': credentials.refresh_token,
-                'token_expiry': credentials.expiry
+                'refresh_token': credentials.refresh_token or '',
+                'token_expiry': credentials.expiry,
+                'is_active': True,
             }
         )
         
-        if not created:
-            # Zaktualizuj istniejące konto
-            yt_account.channel_name = channel_name
-            yt_account.access_token = credentials.token
-            if credentials.refresh_token:  # Refresh token może nie być zwrócony jeśli już istnieje
-                yt_account.refresh_token = credentials.refresh_token
-            yt_account.token_expiry = credentials.expiry
-            yt_account.save()
+        # Wyczyść dane z sesji
+        request.session.pop('oauth_state', None)
+        request.session.pop('yt_client_id', None)
+        request.session.pop('yt_client_secret', None)
         
-        # Wyczyść state z sesji
-        del request.session['oauth_state']
-        
-        messages.success(request, f'✅ Konto YouTube "{channel_name}" zostało pomyślnie połączone!')
+        action = 'połączone' if created else 'zaktualizowane'
+        messages.success(request, f'✅ Konto YouTube "{channel_name}" zostało {action}!')
         return redirect('uploader:connect_youtube')
         
     except Exception as e:
-        messages.error(request, f'Błąd podczas autoryzacji: {str(e)}')
         logger.error(f'OAuth callback error: {str(e)}')
+        messages.error(request, f'❌ Błąd podczas autoryzacji: {str(e)}')
         return redirect('uploader:connect_youtube')
 
 
@@ -475,10 +562,17 @@ def youtube_refresh_token(request):
 @login_required
 def disconnect_youtube(request):
     if request.method == 'POST':
-        yt_account = YTAccount.objects.filter(user=request.user).first()
-        if yt_account:
-            yt_account.delete()
-            messages.success(request, 'Konto YouTube zostało odłączone.')
+        try:
+            yt_account = YTAccount.objects.filter(user=request.user).first()
+            if yt_account:
+                channel_name = yt_account.channel_name
+                yt_account.delete()
+                messages.success(request, f'✅ Konto YouTube "{channel_name}" zostało odłączone.')
+            else:
+                messages.info(request, 'ℹ️ Brak połączonego konta YouTube.')
+        except Exception as e:
+            logger.error(f'Error disconnecting YouTube account for user {request.user.id}: {str(e)}')
+            messages.error(request, f'❌ Błąd podczas odłączania konta: {str(e)}')
         return redirect('uploader:connect_youtube')
     return redirect('uploader:connect_youtube')
 
@@ -489,28 +583,36 @@ def disconnect_youtube(request):
 
 @login_required
 def api_video_status(request, pk):
-    video = get_object_or_404(Video, pk=pk, user=request.user)
-    data = {
-        'status': video.status,
-        'shorts_count': video.get_shorts_count(),
-        'duration': video.duration,
-        'resolution': video.resolution,
-    }
-    return JsonResponse(data)
+    try:
+        video = get_object_or_404(Video, pk=pk, user=request.user)
+        data = {
+            'status': video.status,
+            'shorts_count': video.get_shorts_count(),
+            'duration': video.duration,
+            'resolution': video.resolution,
+        }
+        return JsonResponse(data)
+    except Exception as e:
+        logger.error(f'Error getting video status {pk}: {str(e)}')
+        return JsonResponse({'error': str(e)}, status=500)
 
 
 @login_required
 def api_video_progress(request, pk):
     """API endpoint zwracający postęp przetwarzania wideo"""
-    video = get_object_or_404(Video, pk=pk, user=request.user)
-    data = {
-        'status': video.status,
-        'progress': video.processing_progress,
-        'message': video.processing_message,
-        'shorts_total': video.shorts_total,
-        'shorts_created': video.shorts_created,
-        'is_processing': video.status == 'processing',
-        'is_completed': video.status == 'completed',
-        'is_failed': video.status == 'failed',
-    }
-    return JsonResponse(data)
+    try:
+        video = get_object_or_404(Video, pk=pk, user=request.user)
+        data = {
+            'status': video.status,
+            'progress': video.processing_progress,
+            'message': video.processing_message,
+            'shorts_total': video.shorts_total,
+            'shorts_created': video.shorts_created,
+            'is_processing': video.status == 'processing',
+            'is_completed': video.status == 'completed',
+            'is_failed': video.status == 'failed',
+        }
+        return JsonResponse(data)
+    except Exception as e:
+        logger.error(f'Error getting video progress {pk}: {str(e)}')
+        return JsonResponse({'error': str(e), 'is_failed': True}, status=500)

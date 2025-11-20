@@ -2,8 +2,30 @@
 
 ## 📌 Opis projektu
 
-Aplikacja webowa Django do uploadowania filmów na YouTube za pomocą YouTube Data API v3. 
-Projekt zawiera pełną strukturę Django z nowoczesnym interfejsem użytkownika opartym na Bootstrap 5.
+Aplikacja webowa Django działająca jako **serwer**, która umożliwia:
+- 🔐 **Logowanie** przez Google OAuth lub tradycyjnie (email/hasło)
+- 📹 **Przetwarzanie wideo** - automatyczne cięcie długich filmów na YouTube Shorts
+- 🚀 **Publikację** - upload shortów na YouTube w imieniu użytkownika
+- 📊 **Zarządzanie** - harmonogram publikacji, edycja metadanych, analityka
+
+## 🏗️ Architektura (Ważne!)
+
+Ta aplikacja używa **dwuetapowego procesu autoryzacji**:
+
+### 1️⃣ Logowanie użytkownika do serwera
+- **Email + hasło** (tradycyjnie)
+- **Google OAuth** (przez django-allauth)
+- Server używa własnych Google OAuth credentials
+
+### 2️⃣ Połączenie z YouTube API użytkownika
+- Użytkownik **dostarcza własne** Google API credentials (Client ID + Secret)
+- Każdy użytkownik ma **swoje własne** YouTube API quota
+- Pełna kontrola nad dostępem do swojego kanału
+
+> 💡 **Dlaczego tak?** Każdy użytkownik ma własne limity YouTube API (10,000 units/dzień), 
+> więc nie dzielimy jednego konta API między wszystkich użytkowników!
+
+📖 **Szczegóły:** Zobacz [ARCHITECTURE.md](ARCHITECTURE.md) dla pełnego opisu architektury.
 
 ## 🏗️ Struktura projektu Django
 
@@ -87,13 +109,29 @@ YoutubeUploaderApp/
 pip install -r requirements.txt
 ```
 
-### 2. Dodaj plik client_secrets.json
-Umieść plik `client_secrets.json` z Google Cloud Console w głównym katalogu projektu.
+### 2. Utwórz plik .env (konfiguracja serwera)
+```bash
+# Skopiuj przykładowy plik
+cp .env.example .env
+
+# Edytuj .env i ustaw:
+# - SECRET_KEY (wygeneruj nowy!)
+# - GOOGLE_LOGIN_CLIENT_ID (Google OAuth dla logowania)
+# - GOOGLE_LOGIN_CLIENT_SECRET
+```
+
+**Jak zdobyć Google OAuth credentials dla logowania?**
+1. Przejdź do [Google Cloud Console](https://console.cloud.google.com)
+2. Utwórz projekt → APIs & Services → Credentials
+3. Create OAuth 2.0 Client ID → Web application
+4. Authorized redirect URIs: `http://localhost:8000/accounts/google/login/callback/`
+5. Skopiuj Client ID i Secret do `.env`
 
 ### 3. Wykonaj migracje bazy danych
 ```bash
 python manage.py makemigrations
 python manage.py migrate
+python manage.py init_roles  # Utwórz role użytkowników
 ```
 
 ### 4. Utwórz superusera (opcjonalnie)
@@ -110,31 +148,73 @@ Aplikacja będzie dostępna pod adresem: `http://127.0.0.1:8000/`
 
 ## 📱 Funkcjonalności
 
-✅ Upload filmów na YouTube  
-✅ Formularz z tytułem, opisem i słowami kluczowymi  
-✅ Lista wszystkich uploadowanych filmów  
-✅ Podgląd szczegółów każdego filmu  
-✅ Automatyczne śledzenie statusu uploadu  
-✅ Możliwość ponowienia uploadu w przypadku błędu  
+### Dla użytkowników:
+✅ **Logowanie:**
+- Rejestracja przez email/hasło
+- Logowanie przez Google OAuth
+- Zarządzanie profilem
+
+✅ **Wideo:**
+- Upload długich filmów
+- Automatyczne cięcie na Shorts (FFmpeg)
+- Podgląd wygenerowanych shortów
+- Edycja metadanych (tytuł, opis, tagi)
+
+✅ **YouTube Integration:**
+- Połączenie własnego konta YouTube (user-provided credentials)
+- Automatyczna publikacja shortów
+- Harmonogram publikacji
+- Status uploadu w czasie rzeczywistym
+
+✅ **Dashboard:**
+- Statystyki (liczba wideo, shortów, wyświetleń)
+- Ostatnie aktywności
+- Status przetwarzania wideo
+
+### Dla administratorów:
 ✅ Panel administracyjny Django  
-✅ Responsywny interfejs (Bootstrap 5)  
+✅ Zarządzanie użytkownikami i rolami  
+✅ Monitoring statusów uploadów  
+✅ Logi systemowe  
 
 ## 🎯 Przepływ działania aplikacji
 
-1. **Użytkownik wypełnia formularz** (`upload_form.html`)
-2. **Django waliduje dane** (`forms.py`)
-3. **Dane zapisywane do bazy** (`models.py`)
-4. **Rozpoczyna się upload** (`youtube_service.py`)
-5. **Status aktualizowany w tle** (threading)
-6. **Użytkownik widzi wynik** (`video_list.html`)
+### Dla nowych użytkowników:
+1. **Rejestracja/Logowanie** → Email+hasło lub Google OAuth
+2. **Upload wideo** → Prześlij długi film do przetworzenia
+3. **Przetwarzanie** → FFmpeg automatycznie tnie wideo na Shorts
+4. **Połącz YouTube** → Dostarcz własne Google API credentials
+5. **Publikuj** → Kliknij "Publikuj" na shortach
+6. **Monitoruj** → Śledź status i statystyki
 
-## 🔐 Wymagane API
+### Jak połączyć YouTube? (dla użytkownika)
+1. Utwórz projekt w [Google Cloud Console](https://console.cloud.google.com)
+2. Włącz **YouTube Data API v3**
+3. Utwórz **OAuth 2.0 Client ID** (Web application)
+4. Dodaj Redirect URI: `http://localhost:8000/youtube/oauth/callback/`
+5. Skopiuj **Client ID** i **Client Secret**
+6. W aplikacji: Ustawienia → Połącz YouTube → Wklej credentials
+7. Autoryzuj dostęp do swojego kanału
+8. Gotowe! Możesz publikować shorty
 
-Musisz mieć:
-- Google Cloud Project
-- YouTube Data API v3 włączone
-- OAuth 2.0 Client ID (Desktop app)
-- Plik `client_secrets.json`
+> 📖 **Szczegółowy poradnik:** [GOOGLE_API_SETUP.md](GOOGLE_API_SETUP.md)
+
+## 🔐 Wymagane API & Credentials
+
+### Dla serwera (raz, podczas deployment):
+- **Google OAuth Client** (dla logowania użytkowników)
+  - Scope: `profile`, `email`
+  - Konfiguracja: `.env` → `GOOGLE_LOGIN_CLIENT_ID`, `GOOGLE_LOGIN_CLIENT_SECRET`
+
+### Dla każdego użytkownika (osobno):
+- **YouTube Data API v3** credentials (własny Google Cloud Project)
+  - Scope: `youtube.upload`, `youtube.readonly`, `youtube.force-ssl`
+  - Dostarczane przez użytkownika w aplikacji (Client ID + Secret)
+  - Każdy użytkownik ma własne quota (10,000 units/dzień)
+
+### FFmpeg (opcjonalnie, dla przetwarzania wideo):
+- Instalacja: Zobacz [FFMPEG_INSTALL.md](FFMPEG_INSTALL.md)
+- Bez FFmpeg aplikacja działa, ale nie tworzy shortów automatycznie
 
 ## 📚 Kluczowe koncepcje Django
 

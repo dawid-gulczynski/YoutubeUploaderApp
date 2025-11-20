@@ -31,12 +31,18 @@ class Role(models.Model):
 # CUSTOM USER MODEL
 # ============================================================================
 class User(AbstractUser):
-    """Rozszerzony model użytkownika z integracją YouTube"""
+    """Rozszerzony model użytkownika z integracją Google OAuth"""
     
     email = models.EmailField(unique=True, verbose_name='Email')
     role = models.ForeignKey(Role, on_delete=models.SET_NULL, null=True, related_name='users', verbose_name='Rola')
-    email_verified = models.BooleanField(default=False, verbose_name='Email zweryfikowany')
+    
+    # Google OAuth dla logowania użytkownika
     google_id = models.CharField(max_length=255, blank=True, null=True, unique=True, verbose_name='Google ID')
+    google_email = models.EmailField(blank=True, null=True, verbose_name='Google Email')
+    google_picture = models.URLField(blank=True, null=True, verbose_name='Google Avatar URL')
+    auth_provider = models.CharField(max_length=20, default='local', verbose_name='Metoda logowania', 
+                                     choices=[('local', 'Email/Password'), ('google', 'Google OAuth')])
+    email_verified = models.BooleanField(default=False, verbose_name='Email zweryfikowany')
     
     # Timestampy
     created_at = models.DateTimeField(auto_now_add=True, verbose_name='Data utworzenia')
@@ -65,16 +71,24 @@ class User(AbstractUser):
 # YOUTUBE ACCOUNT MODEL
 # ============================================================================
 class YTAccount(models.Model):
-    """Model reprezentujący połączone konto YouTube"""
+    """Model reprezentujący połączenie użytkownika z jego YouTube API (credentials dostarczone przez użytkownika)"""
     
     user = models.ForeignKey(User, on_delete=models.CASCADE, related_name='yt_accounts', verbose_name='Użytkownik')
     channel_name = models.CharField(max_length=100, verbose_name='Nazwa kanału')
-    channel_id = models.CharField(max_length=100, unique=True, verbose_name='ID kanału')
+    channel_id = models.CharField(max_length=100, verbose_name='ID kanału')
     
-    # OAuth tokens
-    access_token = models.CharField(max_length=255, verbose_name='Access Token')
-    refresh_token = models.CharField(max_length=255, blank=True, null=True, verbose_name='Refresh Token')
+    # Credentials dostarczone przez użytkownika (jego własny Google Cloud Project)
+    client_id = models.CharField(max_length=500, verbose_name='Client ID (z user credentials)', blank=True, default='')
+    client_secret = models.CharField(max_length=500, verbose_name='Client Secret (z user credentials)', blank=True, default='')
+    
+    # OAuth tokens wygenerowane dla użytkownika
+    access_token = models.TextField(verbose_name='Access Token')
+    refresh_token = models.TextField(blank=True, null=True, verbose_name='Refresh Token')
     token_expiry = models.DateTimeField(null=True, blank=True, verbose_name='Wygaśnięcie tokena')
+    
+    # Status połączenia
+    is_active = models.BooleanField(default=True, verbose_name='Aktywne połączenie')
+    last_sync = models.DateTimeField(null=True, blank=True, verbose_name='Ostatnia synchronizacja')
     
     # Timestampy
     created_at = models.DateTimeField(auto_now_add=True, verbose_name='Data połączenia')

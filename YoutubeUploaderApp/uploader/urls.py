@@ -29,6 +29,7 @@ urlpatterns = [
     # YouTube Integration
     path('youtube/connect/', views.connect_youtube, name='connect_youtube'),
     path('youtube/oauth/', views.youtube_oauth, name='youtube_oauth'),
+    path('youtube/oauth/start/', views.youtube_oauth_start, name='youtube_oauth_start'),
     path('youtube/oauth/callback/', views.youtube_oauth_callback, name='youtube_oauth_callback'),
     path('youtube/disconnect/', views.disconnect_youtube, name='youtube_disconnect'),
     path('youtube/refresh/', views.youtube_refresh_token, name='youtube_refresh'),
