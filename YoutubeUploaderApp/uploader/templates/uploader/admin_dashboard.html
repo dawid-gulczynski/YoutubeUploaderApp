@@ -5,9 +5,15 @@
 
 {% block content %}
 <!-- Role Badge -->
-<div class="mb-6 inline-flex items-center px-4 py-2 bg-red-100 text-red-800 rounded-full">
-    <i class="fas fa-crown mr-2"></i>
-    <span class="font-semibold">Administrator</span>
+<div class="mb-6 flex items-center justify-between">
+    <div class="inline-flex items-center px-4 py-2 bg-red-100 text-red-800 rounded-full">
+        <i class="fas fa-crown mr-2"></i>
+        <span class="font-semibold">Administrator</span>
+    </div>
+    <a href="{% url 'uploader:user_management_list' %}" 
+       class="px-6 py-3 bg-red-600 text-white rounded-lg hover:bg-red-700 transition shadow-lg">
+        <i class="fas fa-users-cog mr-2"></i>Zarządzaj użytkownikami
+    </a>
 </div>
 
 <!-- Main Stats -->

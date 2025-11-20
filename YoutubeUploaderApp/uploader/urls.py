@@ -48,4 +48,10 @@ urlpatterns = [
     # API Endpoints
     path('api/video/<int:pk>/status/', views.api_video_status, name='api_video_status'),
     path('api/video/<int:pk>/progress/', views.api_video_progress, name='api_video_progress'),
+    
+    # Zarządzanie użytkownikami (Moderator & Admin)
+    path('users/', views.user_management_list, name='user_management_list'),
+    path('users/<int:user_id>/', views.user_management_detail, name='user_management_detail'),
+    path('users/<int:user_id>/edit/', views.user_management_edit, name='user_management_edit'),
+    path('users/<int:user_id>/delete/', views.user_management_delete, name='user_management_delete'),
 ]

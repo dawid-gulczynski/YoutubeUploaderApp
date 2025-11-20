@@ -1,0 +1,153 @@
+{% extends 'uploader/base_authenticated.html' %}
+
+{% block title %}Edytuj użytkownika - {{ managed_user.username }}{% endblock %}
+{% block page_title %}Edytuj użytkownika{% endblock %}
+
+{% block content %}
+<div class="max-w-3xl mx-auto">
+    <!-- Header -->
+    <div class="bg-white shadow-lg rounded-lg p-6 mb-6">
+        <div class="flex items-center justify-between">
+            <div>
+                <h2 class="text-2xl font-bold text-gray-900">
+                    {% if is_admin %}
+                    <i class="fas fa-user-shield text-red-500 mr-2"></i>
+                    {% else %}
+                    <i class="fas fa-user-edit text-blue-500 mr-2"></i>
+                    {% endif %}
+                    Edytuj dane: {{ managed_user.username }}
+                </h2>
+                <p class="text-sm text-gray-500 mt-1">
+                    {% if is_admin %}
+                    Możesz zmienić wszystkie dane włącznie z rolą użytkownika
+                    {% else %}
+                    Możesz zmienić dane użytkownika (bez zmiany roli)
+                    {% endif %}
+                </p>
+            </div>
+        </div>
+    </div>
+
+    <!-- Formularz -->
+    <div class="bg-white shadow-lg rounded-lg p-6">
+        <form method="post" class="space-y-6">
+            {% csrf_token %}
+            
+            {% if form.non_field_errors %}
+            <div class="bg-red-50 border-l-4 border-red-500 p-4">
+                <div class="flex">
+                    <i class="fas fa-exclamation-circle text-red-500 mr-3 mt-1"></i>
+                    <div>
+                        {% for error in form.non_field_errors %}
+                        <p class="text-sm text-red-700">{{ error }}</p>
+                        {% endfor %}
+                    </div>
+                </div>
+            </div>
+            {% endif %}
+            
+            <!-- Username -->
+            <div>
+                <label class="block text-sm font-medium text-gray-700 mb-2">
+                    <i class="fas fa-user mr-2"></i>Nazwa użytkownika
+                </label>
+                {{ form.username }}
+                {% if form.username.errors %}
+                <p class="mt-1 text-sm text-red-600">{{ form.username.errors.0 }}</p>
+                {% endif %}
+            </div>
+            
+            <!-- Email -->
+            <div>
+                <label class="block text-sm font-medium text-gray-700 mb-2">
+                    <i class="fas fa-envelope mr-2"></i>Adres email
+                </label>
+                {{ form.email }}
+                {% if form.email.errors %}
+                <p class="mt-1 text-sm text-red-600">{{ form.email.errors.0 }}</p>
+                {% endif %}
+            </div>
+            
+            <!-- Imię i nazwisko -->
+            <div class="grid grid-cols-2 gap-4">
+                <div>
+                    <label class="block text-sm font-medium text-gray-700 mb-2">
+                        <i class="fas fa-id-card mr-2"></i>Imię
+                    </label>
+                    {{ form.first_name }}
+                    {% if form.first_name.errors %}
+                    <p class="mt-1 text-sm text-red-600">{{ form.first_name.errors.0 }}</p>
+                    {% endif %}
+                </div>
+                <div>
+                    <label class="block text-sm font-medium text-gray-700 mb-2">
+                        <i class="fas fa-id-card mr-2"></i>Nazwisko
+                    </label>
+                    {{ form.last_name }}
+                    {% if form.last_name.errors %}
+                    <p class="mt-1 text-sm text-red-600">{{ form.last_name.errors.0 }}</p>
+                    {% endif %}
+                </div>
+            </div>
+            
+            <!-- Rola (tylko admin) -->
+            {% if is_admin and form.role %}
+            <div>
+                <label class="block text-sm font-medium text-gray-700 mb-2">
+                    <i class="fas fa-user-tag mr-2"></i>Rola
+                </label>
+                {{ form.role }}
+                {% if form.role.errors %}
+                <p class="mt-1 text-sm text-red-600">{{ form.role.errors.0 }}</p>
+                {% endif %}
+                <p class="mt-1 text-xs text-gray-500">
+                    <i class="fas fa-info-circle mr-1"></i>
+                    User - podstawowy użytkownik | Moderator - zarządza użytkownikami | Admin - pełne uprawnienia
+                </p>
+            </div>
+            {% endif %}
+            
+            <!-- Checkboxy -->
+            <div class="space-y-3 border-t border-gray-200 pt-4">
+                <div class="flex items-center">
+                    {{ form.is_active }}
+                    <label for="{{ form.is_active.id_for_label }}" class="ml-2 text-sm text-gray-700">
+                        {{ form.is_active.label }}
+                        <span class="text-xs text-gray-500 ml-2">
+                            (Dezaktywacja uniemożliwia logowanie)
+                        </span>
+                    </label>
+                </div>
+                
+                {% if is_admin %}
+                <div class="flex items-center">
+                    {{ form.is_staff }}
+                    <label for="{{ form.is_staff.id_for_label }}" class="ml-2 text-sm text-gray-700">
+                        {{ form.is_staff.label }}
+                    </label>
+                </div>
+                
+                <div class="flex items-center">
+                    {{ form.is_superuser }}
+                    <label for="{{ form.is_superuser.id_for_label }}" class="ml-2 text-sm text-gray-700">
+                        {{ form.is_superuser.label }}
+                    </label>
+                </div>
+                {% endif %}
+            </div>
+            
+            <!-- Przyciski -->
+            <div class="flex items-center justify-between pt-6 border-t border-gray-200">
+                <a href="{% url 'uploader:user_management_detail' managed_user.id %}" 
+                   class="px-6 py-3 bg-gray-300 text-gray-700 rounded-lg hover:bg-gray-400 transition font-medium">
+                    <i class="fas fa-times mr-2"></i>Anuluj
+                </a>
+                <button type="submit" 
+                        class="px-6 py-3 {% if is_admin %}bg-red-600 hover:bg-red-700{% else %}bg-blue-600 hover:bg-blue-700{% endif %} text-white rounded-lg transition font-medium">
+                    <i class="fas fa-save mr-2"></i>Zapisz zmiany
+                </button>
+            </div>
+        </form>
+    </div>
+</div>
+{% endblock %}

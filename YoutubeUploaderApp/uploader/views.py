@@ -16,7 +16,7 @@ import threading
 import logging
 
 from .models import User, Role, Video, Short, YTAccount
-from .forms import UserRegistrationForm, UserLoginForm, VideoUploadForm, ShortEditForm, UserProfileForm
+from .forms import UserRegistrationForm, UserLoginForm, VideoUploadForm, ShortEditForm, UserProfileForm, ModeratorUserEditForm, AdminUserEditForm
 from .video_processing import process_video_async, check_ffmpeg_installed
 
 logger = logging.getLogger(__name__)
@@ -493,6 +493,12 @@ class VideoListView(LoginRequiredMixin, ListView):
     context_object_name = 'videos'
     paginate_by = 12
     
+    def dispatch(self, request, *args, **kwargs):
+        if request.user.is_moderator():
+            messages.error(request, '❌ Moderatorzy i administratorzy nie mają dostępu do tej sekcji. Zarządzaj użytkownikami.')
+            return redirect('uploader:dashboard')
+        return super().dispatch(request, *args, **kwargs)
+    
     def get_queryset(self):
         queryset = Video.objects.filter(user=self.request.user)
         status = self.request.GET.get('status')
@@ -509,6 +515,12 @@ class VideoUploadView(LoginRequiredMixin, CreateView):
     form_class = VideoUploadForm
     template_name = 'uploader/video/video_upload.html'
     success_url = reverse_lazy('uploader:video_list')
+    
+    def dispatch(self, request, *args, **kwargs):
+        if request.user.is_moderator():
+            messages.error(request, '❌ Moderatorzy i administratorzy nie mogą uploadować wideo.')
+            return redirect('uploader:dashboard')
+        return super().dispatch(request, *args, **kwargs)
     
     def get_context_data(self, **kwargs):
         context = super().get_context_data(**kwargs)
@@ -543,6 +555,12 @@ class VideoDetailView(LoginRequiredMixin, DetailView):
     template_name = 'uploader/video/video_detail.html'
     context_object_name = 'video'
     
+    def dispatch(self, request, *args, **kwargs):
+        if request.user.is_moderator():
+            messages.error(request, '❌ Brak dostępu do tej sekcji.')
+            return redirect('uploader:dashboard')
+        return super().dispatch(request, *args, **kwargs)
+    
     def get_queryset(self):
         return Video.objects.filter(user=self.request.user)
     
@@ -554,6 +572,9 @@ class VideoDetailView(LoginRequiredMixin, DetailView):
 
 @login_required
 def video_delete(request, pk):
+    if request.user.is_moderator():
+        messages.error(request, '❌ Brak dostępu do tej funkcji.')
+        return redirect('uploader:dashboard')
     video = get_object_or_404(Video, pk=pk, user=request.user)
     if request.method == 'POST':
         try:
@@ -577,6 +598,12 @@ class ShortListView(LoginRequiredMixin, ListView):
     template_name = 'uploader/short/short_list.html'
     context_object_name = 'shorts'
     paginate_by = 20
+    
+    def dispatch(self, request, *args, **kwargs):
+        if request.user.is_moderator():
+            messages.error(request, '❌ Moderatorzy i administratorzy nie mają dostępu do tej sekcji.')
+            return redirect('uploader:dashboard')
+        return super().dispatch(request, *args, **kwargs)
     
     def get_queryset(self):
         queryset = Short.objects.filter(video__user=self.request.user)
@@ -612,6 +639,12 @@ class ShortDetailView(LoginRequiredMixin, DetailView):
     model = Short
     template_name = 'uploader/short/short_detail.html'
     context_object_name = 'short'
+    
+    def dispatch(self, request, *args, **kwargs):
+        if request.user.is_moderator():
+            messages.error(request, '❌ Brak dostępu do tej sekcji.')
+            return redirect('uploader:dashboard')
+        return super().dispatch(request, *args, **kwargs)
     
     def get_queryset(self):
         return Short.objects.filter(video__user=self.request.user)
@@ -667,6 +700,12 @@ class ShortEditView(LoginRequiredMixin, UpdateView):
     model = Short
     form_class = ShortEditForm
     template_name = 'uploader/short/short_edit.html'
+    
+    def dispatch(self, request, *args, **kwargs):
+        if request.user.is_moderator():
+            messages.error(request, '❌ Brak dostępu do tej funkcji.')
+            return redirect('uploader:dashboard')
+        return super().dispatch(request, *args, **kwargs)
     
     def get_queryset(self):
         return Short.objects.filter(video__user=self.request.user)
@@ -740,6 +779,9 @@ class ShortEditView(LoginRequiredMixin, UpdateView):
 @login_required
 def short_publish(request, pk):
     """Przekierowuje do edycji shorta przed publikacją"""
+    if request.user.is_moderator():
+        messages.error(request, '❌ Brak dostępu do tej funkcji.')
+        return redirect('uploader:dashboard')
     short = get_object_or_404(Short, pk=pk, video__user=request.user)
     
     # Sprawdź czy użytkownik ma połączone konto YouTube
@@ -763,6 +805,9 @@ def short_publish(request, pk):
 
 @login_required
 def short_delete(request, pk):
+    if request.user.is_moderator():
+        messages.error(request, '❌ Brak dostępu do tej funkcji.')
+        return redirect('uploader:dashboard')
     short = get_object_or_404(Short, pk=pk, video__user=request.user)
     if request.method == 'POST':
         try:
@@ -816,6 +861,10 @@ def short_delete(request, pk):
 @login_required
 def short_refresh_stats(request, pk):
     """Odświeża statystyki shorta z YouTube"""
+    if request.user.is_moderator():
+        messages.error(request, '❌ Brak dostępu do tej funkcji.')
+        return redirect('uploader:dashboard')
+        
     from googleapiclient.discovery import build
     from google.oauth2.credentials import Credentials
     import os
@@ -882,6 +931,9 @@ def short_refresh_stats(request, pk):
 @login_required
 def connect_youtube(request):
     """Widok połączenia konta YouTube - użytkownik dostarcza własne Google API credentials"""
+    if request.user.is_moderator():
+        messages.error(request, '❌ Moderatorzy i administratorzy nie mogą łączyć kont YouTube.')
+        return redirect('uploader:dashboard')
     yt_account = YTAccount.objects.filter(user=request.user).first()
     
     if request.method == 'POST' and 'disconnect' in request.POST:
@@ -894,6 +946,9 @@ def connect_youtube(request):
 @login_required
 def youtube_oauth(request):
     """Krok 1: Użytkownik dostarcza swoje Google API credentials (Client ID i Client Secret)"""
+    if request.user.is_moderator():
+        messages.error(request, '❌ Brak dostępu do tej funkcji.')
+        return redirect('uploader:dashboard')
     yt_account = YTAccount.objects.filter(user=request.user).first()
     
     if request.method == 'POST':
@@ -917,6 +972,9 @@ def youtube_oauth(request):
 @login_required
 def youtube_oauth_start(request):
     """Krok 2: Inicjuje proces OAuth 2.0 z credentials użytkownika"""
+    if request.user.is_moderator():
+        messages.error(request, '❌ Brak dostępu do tej funkcji.')
+        return redirect('uploader:dashboard')
     from google_auth_oauthlib.flow import Flow
     from django.urls import reverse
     import json
@@ -976,6 +1034,9 @@ def youtube_oauth_start(request):
 @login_required
 def youtube_oauth_callback(request):
     """Krok 3: Callback po autoryzacji OAuth - zapisz tokeny użytkownika"""
+    if request.user.is_moderator():
+        messages.error(request, '❌ Brak dostępu do tej funkcji.')
+        return redirect('uploader:dashboard')
     from google_auth_oauthlib.flow import Flow
     from googleapiclient.discovery import build
     import os
@@ -1088,6 +1149,9 @@ def youtube_refresh_token(request):
 
 @login_required
 def disconnect_youtube(request):
+    if request.user.is_moderator():
+        messages.error(request, '❌ Brak dostępu do tej funkcji.')
+        return redirect('uploader:dashboard')
     if request.method == 'POST':
         try:
             yt_account = YTAccount.objects.filter(user=request.user).first()
@@ -1143,3 +1207,167 @@ def api_video_progress(request, pk):
     except Exception as e:
         logger.error(f'Error getting video progress {pk}: {str(e)}')
         return JsonResponse({'error': str(e), 'is_failed': True}, status=500)
+
+
+# ============================================================================
+# ZARZĄDZANIE UŻYTKOWNIKAMI (MODERATOR & ADMIN)
+# ============================================================================
+
+@login_required
+def user_management_list(request):
+    """Lista użytkowników do zarządzania"""
+    if not request.user.is_moderator():
+        messages.error(request, '❌ Brak dostępu do zarządzania użytkownikami.')
+        return redirect('uploader:dashboard')
+    
+    # Moderator widzi tylko użytkowników z rolą 'user'
+    # Admin widzi wszystkich użytkowników
+    if request.user.is_admin_user():
+        users = User.objects.select_related('role').all().order_by('-date_joined')
+    else:
+        users = User.objects.select_related('role').filter(role__symbol='user').order_by('-date_joined')
+    
+    # Filtrowanie
+    search_query = request.GET.get('search', '')
+    if search_query:
+        users = users.filter(
+            Q(username__icontains=search_query) |
+            Q(email__icontains=search_query) |
+            Q(first_name__icontains=search_query) |
+            Q(last_name__icontains=search_query)
+        )
+    
+    role_filter = request.GET.get('role', '')
+    if role_filter:
+        users = users.filter(role__symbol=role_filter)
+    
+    # Dodaj statystyki dla każdego użytkownika
+    from django.db.models import Count, Sum
+    users = users.annotate(
+        video_count=Count('videos'),
+        short_count=Count('videos__shorts'),
+        published_shorts=Count('videos__shorts', filter=Q(videos__shorts__upload_status='published')),
+        total_views=Sum('videos__shorts__views', filter=Q(videos__shorts__upload_status='published'))
+    )
+    
+    context = {
+        'users': users,
+        'search_query': search_query,
+        'role_filter': role_filter,
+        'is_admin': request.user.is_admin_user(),
+    }
+    
+    return render(request, 'uploader/user_management/user_list.html', context)
+
+
+@login_required
+def user_management_detail(request, user_id):
+    """Szczegóły użytkownika z aktywnością i statystykami"""
+    if not request.user.is_moderator():
+        messages.error(request, '❌ Brak dostępu do zarządzania użytkownikami.')
+        return redirect('uploader:dashboard')
+    
+    user = get_object_or_404(User.objects.select_related('role'), pk=user_id)
+    
+    # Moderator może widzieć tylko użytkowników z rolą 'user'
+    if not request.user.is_admin_user() and user.role and user.role.symbol != 'user':
+        messages.error(request, '❌ Brak dostępu do tego użytkownika.')
+        return redirect('uploader:user_management_list')
+    
+    # Statystyki użytkownika
+    from django.db.models import Sum
+    videos = user.videos.all().order_by('-created_at')
+    shorts = Short.objects.filter(video__user=user).order_by('-created_at')
+    
+    stats = {
+        'total_videos': videos.count(),
+        'processing_videos': videos.filter(status='processing').count(),
+        'completed_videos': videos.filter(status='completed').count(),
+        'failed_videos': videos.filter(status='failed').count(),
+        'total_shorts': shorts.count(),
+        'published_shorts': shorts.filter(upload_status='published').count(),
+        'pending_shorts': shorts.filter(upload_status='pending').count(),
+        'failed_shorts': shorts.filter(upload_status='failed').count(),
+        'total_views': shorts.filter(upload_status='published').aggregate(Sum('views'))['views__sum'] or 0,
+        'yt_accounts': user.yt_accounts.count(),
+        'active_yt_accounts': user.yt_accounts.filter(is_active=True).count(),
+    }
+    
+    # Ostatnia aktywność
+    recent_videos = videos[:5]
+    recent_shorts = shorts[:10]
+    
+    context = {
+        'managed_user': user,
+        'stats': stats,
+        'recent_videos': recent_videos,
+        'recent_shorts': recent_shorts,
+        'is_admin': request.user.is_admin_user(),
+    }
+    
+    return render(request, 'uploader/user_management/user_detail.html', context)
+
+
+@login_required
+def user_management_edit(request, user_id):
+    """Edycja danych użytkownika"""
+    if not request.user.is_moderator():
+        messages.error(request, '❌ Brak dostępu do zarządzania użytkownikami.')
+        return redirect('uploader:dashboard')
+    
+    user = get_object_or_404(User.objects.select_related('role'), pk=user_id)
+    
+    # Moderator może edytować tylko użytkowników z rolą 'user'
+    if not request.user.is_admin_user() and user.role and user.role.symbol != 'user':
+        messages.error(request, '❌ Brak dostępu do edycji tego użytkownika.')
+        return redirect('uploader:user_management_list')
+    
+    # Wybierz odpowiedni formularz
+    if request.user.is_admin_user():
+        FormClass = AdminUserEditForm
+    else:
+        FormClass = ModeratorUserEditForm
+    
+    if request.method == 'POST':
+        form = FormClass(request.POST, instance=user)
+        if form.is_valid():
+            form.save()
+            messages.success(request, f'✅ Dane użytkownika "{user.username}" zostały zaktualizowane.')
+            return redirect('uploader:user_management_detail', user_id=user.id)
+    else:
+        form = FormClass(instance=user)
+    
+    context = {
+        'form': form,
+        'managed_user': user,
+        'is_admin': request.user.is_admin_user(),
+    }
+    
+    return render(request, 'uploader/user_management/user_edit.html', context)
+
+
+@login_required
+def user_management_delete(request, user_id):
+    """Usunięcie użytkownika"""
+    if not request.user.is_admin_user():
+        messages.error(request, '❌ Tylko administrator może usuwać użytkowników.')
+        return redirect('uploader:user_management_list')
+    
+    user = get_object_or_404(User, pk=user_id)
+    
+    # Nie można usunąć samego siebie
+    if user.id == request.user.id:
+        messages.error(request, '❌ Nie możesz usunąć własnego konta w ten sposób.')
+        return redirect('uploader:user_management_list')
+    
+    if request.method == 'POST':
+        username = user.username
+        user.delete()
+        messages.success(request, f'✅ Użytkownik "{username}" został usunięty.')
+        return redirect('uploader:user_management_list')
+    
+    context = {
+        'managed_user': user,
+    }
+    
+    return render(request, 'uploader/user_management/user_confirm_delete.html', context)

@@ -1,0 +1,83 @@
+{% extends 'uploader/base_authenticated.html' %}
+
+{% block title %}Usuń użytkownika - {{ managed_user.username }}{% endblock %}
+{% block page_title %}Usuń użytkownika{% endblock %}
+
+{% block content %}
+<div class="max-w-2xl mx-auto">
+    <div class="bg-white shadow-lg rounded-lg overflow-hidden">
+        <!-- Header z ostrzeżeniem -->
+        <div class="bg-red-600 px-6 py-4">
+            <h2 class="text-2xl font-bold text-white">
+                <i class="fas fa-exclamation-triangle mr-2"></i>
+                Potwierdzenie usunięcia
+            </h2>
+        </div>
+        
+        <div class="p-6">
+            <!-- Informacje o użytkowniku -->
+            <div class="mb-6 p-4 bg-gray-50 rounded-lg">
+                <div class="flex items-center">
+                    <div class="flex-shrink-0 h-12 w-12">
+                        {% if managed_user.google_picture %}
+                        <img class="h-12 w-12 rounded-full" src="{{ managed_user.google_picture }}" alt="{{ managed_user.username }}">
+                        {% else %}
+                        <div class="h-12 w-12 rounded-full bg-gradient-to-br from-blue-400 to-blue-600 flex items-center justify-center text-white font-bold text-xl">
+                            {{ managed_user.username.0|upper }}
+                        </div>
+                        {% endif %}
+                    </div>
+                    <div class="ml-4">
+                        <p class="text-lg font-semibold text-gray-900">{{ managed_user.username }}</p>
+                        <p class="text-sm text-gray-500">{{ managed_user.email }}</p>
+                        {% if managed_user.role %}
+                        <span class="inline-block mt-1 px-2 py-1 text-xs font-semibold rounded-full
+                            {% if managed_user.role.symbol == 'admin' %}bg-red-100 text-red-800
+                            {% elif managed_user.role.symbol == 'moderator' %}bg-blue-100 text-blue-800
+                            {% else %}bg-green-100 text-green-800{% endif %}">
+                            {{ managed_user.role.name }}
+                        </span>
+                        {% endif %}
+                    </div>
+                </div>
+            </div>
+            
+            <!-- Ostrzeżenie -->
+            <div class="bg-yellow-50 border-l-4 border-yellow-400 p-4 mb-6">
+                <div class="flex">
+                    <i class="fas fa-exclamation-triangle text-yellow-400 mr-3 mt-1"></i>
+                    <div>
+                        <h3 class="text-sm font-medium text-yellow-800 mb-2">
+                            Czy na pewno chcesz usunąć tego użytkownika?
+                        </h3>
+                        <p class="text-sm text-yellow-700">
+                            Ta operacja jest nieodwracalna! Wszystkie dane użytkownika zostaną trwale usunięte:
+                        </p>
+                        <ul class="mt-2 text-sm text-yellow-700 list-disc list-inside space-y-1">
+                            <li>Wszystkie przesłane wideo</li>
+                            <li>Wszystkie wygenerowane shorty</li>
+                            <li>Połączenia z kontami YouTube</li>
+                            <li>Statystyki i historia aktywności</li>
+                        </ul>
+                    </div>
+                </div>
+            </div>
+            
+            <!-- Formularz potwierdzenia -->
+            <form method="post">
+                {% csrf_token %}
+                <div class="flex items-center justify-between">
+                    <a href="{% url 'uploader:user_management_detail' managed_user.id %}" 
+                       class="px-6 py-3 bg-gray-300 text-gray-700 rounded-lg hover:bg-gray-400 transition font-medium">
+                        <i class="fas fa-arrow-left mr-2"></i>Anuluj
+                    </a>
+                    <button type="submit" 
+                            class="px-6 py-3 bg-red-600 text-white rounded-lg hover:bg-red-700 transition font-medium">
+                        <i class="fas fa-trash mr-2"></i>Tak, usuń użytkownika
+                    </button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+{% endblock %}

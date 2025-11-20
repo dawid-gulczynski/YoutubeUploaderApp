@@ -1,6 +1,6 @@
 from django import forms
 from django.contrib.auth.forms import UserCreationForm, AuthenticationForm
-from .models import User, Video, Short
+from .models import User, Video, Short, Role
 
 
 class UserRegistrationForm(UserCreationForm):
@@ -167,4 +167,76 @@ class ShortEditForm(forms.ModelForm):
         help_texts = {
             'scheduled_at': 'Pozostaw puste dla natychmiastowej publikacji',
             'made_for_kids': 'Zaznacz jeśli treść jest przeznaczona dla dzieci (wymóg YouTube)'
+        }
+
+
+class ModeratorUserEditForm(forms.ModelForm):
+    """Formularz do edycji użytkownika przez moderatora (bez zmiany roli)"""
+    
+    class Meta:
+        model = User
+        fields = ['username', 'email', 'first_name', 'last_name', 'is_active']
+        widgets = {
+            'username': forms.TextInput(attrs={
+                'class': 'w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent',
+                'placeholder': 'Nazwa użytkownika'
+            }),
+            'email': forms.EmailInput(attrs={
+                'class': 'w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent',
+                'placeholder': 'Adres email'
+            }),
+            'first_name': forms.TextInput(attrs={
+                'class': 'w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent',
+                'placeholder': 'Imię'
+            }),
+            'last_name': forms.TextInput(attrs={
+                'class': 'w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent',
+                'placeholder': 'Nazwisko'
+            }),
+            'is_active': forms.CheckboxInput(attrs={
+                'class': 'w-4 h-4 text-blue-600 border-gray-300 rounded focus:ring-blue-500'
+            })
+        }
+
+
+class AdminUserEditForm(forms.ModelForm):
+    """Formularz do edycji użytkownika przez administratora (z możliwością zmiany roli)"""
+    
+    class Meta:
+        model = User
+        fields = ['username', 'email', 'first_name', 'last_name', 'role', 'is_active', 'is_staff', 'is_superuser']
+        widgets = {
+            'username': forms.TextInput(attrs={
+                'class': 'w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-red-500 focus:border-transparent',
+                'placeholder': 'Nazwa użytkownika'
+            }),
+            'email': forms.EmailInput(attrs={
+                'class': 'w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-red-500 focus:border-transparent',
+                'placeholder': 'Adres email'
+            }),
+            'first_name': forms.TextInput(attrs={
+                'class': 'w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-red-500 focus:border-transparent',
+                'placeholder': 'Imię'
+            }),
+            'last_name': forms.TextInput(attrs={
+                'class': 'w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-red-500 focus:border-transparent',
+                'placeholder': 'Nazwisko'
+            }),
+            'role': forms.Select(attrs={
+                'class': 'w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-red-500 focus:border-transparent'
+            }),
+            'is_active': forms.CheckboxInput(attrs={
+                'class': 'w-4 h-4 text-red-600 border-gray-300 rounded focus:ring-red-500'
+            }),
+            'is_staff': forms.CheckboxInput(attrs={
+                'class': 'w-4 h-4 text-red-600 border-gray-300 rounded focus:ring-red-500'
+            }),
+            'is_superuser': forms.CheckboxInput(attrs={
+                'class': 'w-4 h-4 text-red-600 border-gray-300 rounded focus:ring-red-500'
+            })
+        }
+        labels = {
+            'is_active': 'Aktywny',
+            'is_staff': 'Dostęp do panelu Django Admin',
+            'is_superuser': 'Superuser (pełne uprawnienia)'
         }
