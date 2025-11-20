@@ -46,29 +46,19 @@
                     <div class="bg-gray-50 p-4 rounded-lg space-y-2">
                         <div class="flex justify-between">
                             <span class="text-gray-600">Status:</span>
-                            {% if yt_account.is_token_valid %}
+                            {% if yt_account.is_active %}
                             <span class="px-3 py-1 bg-green-100 text-green-800 rounded-full text-sm font-semibold">
                                 <i class="fas fa-circle text-xs mr-1"></i>Aktywny
                             </span>
                             {% else %}
-                            <span class="px-3 py-1 bg-yellow-100 text-yellow-800 rounded-full text-sm font-semibold">
-                                <i class="fas fa-exclamation-circle text-xs mr-1"></i>Token wygasł
+                            <span class="px-3 py-1 bg-red-100 text-red-800 rounded-full text-sm font-semibold">
+                                <i class="fas fa-times-circle text-xs mr-1"></i>Nieaktywny
                             </span>
                             {% endif %}
                         </div>
                         <div class="flex justify-between">
                             <span class="text-gray-600">Ostatnia aktualizacja:</span>
                             <span class="text-gray-900">{{ yt_account.updated_at|date:"d.m.Y H:i" }}</span>
-                        </div>
-                        <div class="flex justify-between">
-                            <span class="text-gray-600">Token wygasa:</span>
-                            <span class="text-gray-900">
-                                {% if yt_account.token_expiry %}
-                                    {{ yt_account.token_expiry|date:"d.m.Y H:i" }}
-                                {% else %}
-                                    Brak danych
-                                {% endif %}
-                            </span>
                         </div>
                     </div>
                 </div>

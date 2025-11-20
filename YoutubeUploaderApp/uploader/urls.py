@@ -31,6 +31,7 @@ urlpatterns = [
     path('shorts/<int:pk>/', views.ShortDetailView.as_view(), name='short_detail'),
     path('shorts/<int:pk>/edit/', views.ShortEditView.as_view(), name='short_edit'),
     path('shorts/<int:pk>/publish/', views.short_publish, name='short_publish'),
+    path('shorts/<int:pk>/refresh-stats/', views.short_refresh_stats, name='short_refresh_stats'),
     path('shorts/<int:pk>/delete/', views.short_delete, name='short_delete'),
     
     # YouTube Integration

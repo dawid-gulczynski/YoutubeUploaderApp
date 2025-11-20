@@ -435,9 +435,31 @@ class ShortListView(LoginRequiredMixin, ListView):
     def get_queryset(self):
         queryset = Short.objects.filter(video__user=self.request.user)
         status = self.request.GET.get('status')
+        search = self.request.GET.get('search')
+        
         if status:
             queryset = queryset.filter(upload_status=status)
+        if search:
+            queryset = queryset.filter(title__icontains=search)
+            
         return queryset.order_by('-created_at')
+    
+    def get_context_data(self, **kwargs):
+        context = super().get_context_data(**kwargs)
+        
+        # Pobierz wszystkie shorty użytkownika (bez filtrów)
+        all_shorts = Short.objects.filter(video__user=self.request.user)
+        
+        # Oblicz statystyki
+        from django.db.models import Sum
+        context['stats'] = {
+            'total': all_shorts.count(),
+            'pending': all_shorts.filter(upload_status='pending').count(),
+            'published': all_shorts.filter(upload_status='published').count(),
+            'total_views': all_shorts.filter(upload_status='published').aggregate(Sum('views'))['views__sum'] or 0,
+        }
+        
+        return context
 
 
 class ShortDetailView(LoginRequiredMixin, DetailView):
@@ -447,6 +469,52 @@ class ShortDetailView(LoginRequiredMixin, DetailView):
     
     def get_queryset(self):
         return Short.objects.filter(video__user=self.request.user)
+    
+    def get_context_data(self, **kwargs):
+        context = super().get_context_data(**kwargs)
+        short = self.object
+        
+        # Automatycznie odśwież statystyki jeśli short jest opublikowany
+        if short.is_published() and short.yt_video_id:
+            from googleapiclient.discovery import build
+            from google.oauth2.credentials import Credentials
+            import os
+            
+            # Wyłącz wymóg HTTPS w developmencie
+            os.environ['OAUTHLIB_INSECURE_TRANSPORT'] = '1'
+            
+            yt_account = YTAccount.objects.filter(user=self.request.user).first()
+            if yt_account:
+                try:
+                    # Utwórz credentials z zapisanych tokenów
+                    credentials = Credentials(
+                        token=yt_account.access_token,
+                        refresh_token=yt_account.refresh_token,
+                        token_uri="https://oauth2.googleapis.com/token",
+                        client_id=yt_account.client_id,
+                        client_secret=yt_account.client_secret
+                    )
+                    
+                    # Utwórz YouTube service
+                    youtube = build('youtube', 'v3', credentials=credentials)
+                    
+                    # Pobierz statystyki wideo
+                    video_response = youtube.videos().list(
+                        part='statistics',
+                        id=short.yt_video_id
+                    ).execute()
+                    
+                    if video_response.get('items'):
+                        # Zaktualizuj statystyki
+                        stats = video_response['items'][0]['statistics']
+                        short.views = int(stats.get('viewCount', 0))
+                        short.likes = int(stats.get('likeCount', 0))
+                        short.comments = int(stats.get('commentCount', 0))
+                        short.save()
+                except Exception as e:
+                    logger.error(f'Error auto-refreshing stats: {str(e)}')
+        
+        return context
 
 
 class ShortEditView(LoginRequiredMixin, UpdateView):
@@ -529,14 +597,111 @@ def short_delete(request, pk):
         try:
             video_id = short.video.id
             short_title = short.title
+            yt_video_id = short.yt_video_id
+            
+            # Jeśli short jest opublikowany na YouTube, usuń go tam również
+            if short.is_published() and yt_video_id:
+                from googleapiclient.discovery import build
+                from google.oauth2.credentials import Credentials
+                import os
+                
+                # Wyłącz wymóg HTTPS w developmencie
+                os.environ['OAUTHLIB_INSECURE_TRANSPORT'] = '1'
+                
+                yt_account = YTAccount.objects.filter(user=request.user).first()
+                if yt_account:
+                    try:
+                        # Utwórz credentials
+                        credentials = Credentials(
+                            token=yt_account.access_token,
+                            refresh_token=yt_account.refresh_token,
+                            token_uri="https://oauth2.googleapis.com/token",
+                            client_id=yt_account.client_id,
+                            client_secret=yt_account.client_secret
+                        )
+                        
+                        # Utwórz YouTube service
+                        youtube = build('youtube', 'v3', credentials=credentials)
+                        
+                        # Usuń wideo z YouTube
+                        youtube.videos().delete(id=yt_video_id).execute()
+                        logger.info(f'Successfully deleted video {yt_video_id} from YouTube')
+                        
+                    except Exception as e:
+                        logger.error(f'Error deleting video from YouTube: {str(e)}')
+                        # Kontynuuj usuwanie z bazy danych nawet jeśli usunięcie z YouTube nie powiodło się
+            
+            # Usuń short z bazy danych
             short.delete()
-            messages.success(request, f'✅ Short "{short_title}" został usunięty.')
+            messages.success(request, f'✅ Short "{short_title}" został usunięty z systemu i YouTube.')
             return redirect('uploader:video_detail', pk=video_id)
         except Exception as e:
             logger.error(f'Error deleting short {pk}: {str(e)}')
             messages.error(request, f'❌ Błąd podczas usuwania shorta: {str(e)}')
             return redirect('uploader:short_detail', pk=pk)
     return render(request, 'uploader/short/short_confirm_delete.html', {'short': short})
+
+
+@login_required
+def short_refresh_stats(request, pk):
+    """Odświeża statystyki shorta z YouTube"""
+    from googleapiclient.discovery import build
+    from google.oauth2.credentials import Credentials
+    import os
+    
+    # Wyłącz wymóg HTTPS w developmencie
+    os.environ['OAUTHLIB_INSECURE_TRANSPORT'] = '1'
+    
+    short = get_object_or_404(Short, pk=pk, video__user=request.user)
+    
+    # Sprawdź czy short jest opublikowany
+    if not short.is_published() or not short.yt_video_id:
+        messages.error(request, '❌ Ten short nie jest jeszcze opublikowany na YouTube.')
+        return redirect('uploader:short_detail', pk=pk)
+    
+    # Sprawdź czy użytkownik ma połączone konto YouTube
+    yt_account = YTAccount.objects.filter(user=request.user).first()
+    if not yt_account:
+        messages.error(request, '❌ Musisz najpierw połączyć konto YouTube!')
+        return redirect('uploader:connect_youtube')
+    
+    try:
+        # Utwórz credentials z zapisanych tokenów
+        credentials = Credentials(
+            token=yt_account.access_token,
+            refresh_token=yt_account.refresh_token,
+            token_uri="https://oauth2.googleapis.com/token",
+            client_id=yt_account.client_id,
+            client_secret=yt_account.client_secret
+        )
+        
+        # Utwórz YouTube service
+        youtube = build('youtube', 'v3', credentials=credentials)
+        
+        # Pobierz statystyki wideo
+        video_response = youtube.videos().list(
+            part='statistics',
+            id=short.yt_video_id
+        ).execute()
+        
+        if not video_response.get('items'):
+            messages.error(request, '❌ Nie znaleziono wideo na YouTube. Być może zostało usunięte.')
+            return redirect('uploader:short_detail', pk=pk)
+        
+        # Zaktualizuj statystyki
+        stats = video_response['items'][0]['statistics']
+        short.views = int(stats.get('viewCount', 0))
+        short.likes = int(stats.get('likeCount', 0))
+        short.comments = int(stats.get('commentCount', 0))
+        short.save()
+        
+        messages.success(request, f'✅ Statystyki zaktualizowane! Wyświetlenia: {short.views}, Polubienia: {short.likes}, Komentarze: {short.comments}')
+        return redirect('uploader:short_detail', pk=pk)
+        
+    except Exception as e:
+        logger.error(f'Error refreshing stats: {str(e)}')
+        messages.error(request, f'❌ Błąd podczas pobierania statystyk: {str(e)}')
+        return redirect('uploader:short_detail', pk=pk)
 
 
 # ============================================================================
