@@ -303,7 +303,24 @@ def profile_edit_view(request):
 
 @login_required
 def dashboard_view(request):
-    """Główny dashboard"""
+    """Główny dashboard - przekierowuje do odpowiedniego dashboardu w zależności od roli"""
+    user = request.user
+    
+    # Admin dashboard
+    if user.is_admin_user():
+        return redirect('uploader:admin_dashboard')
+    
+    # Moderator dashboard
+    if user.is_moderator():
+        return redirect('uploader:moderator_dashboard')
+    
+    # User dashboard
+    return redirect('uploader:user_dashboard')
+
+
+@login_required
+def user_dashboard(request):
+    """Dashboard dla zwykłego użytkownika"""
     try:
         user = request.user
         videos = Video.objects.filter(user=user)
@@ -339,6 +356,131 @@ def dashboard_view(request):
         logger.error(f'Error loading dashboard for user {request.user.id}: {str(e)}')
         messages.error(request, '❌ Wystąpił błąd podczas ładowania dashboardu.')
         return render(request, 'uploader/dashboard.html', {'stats': {}})
+
+
+@login_required
+def moderator_dashboard(request):
+    """Dashboard dla moderatora"""
+    if not request.user.is_moderator():
+        messages.error(request, '❌ Brak dostępu do panelu moderatora.')
+        return redirect('uploader:dashboard')
+    
+    try:
+        from django.db.models import Sum, Count
+        
+        # Statystyki globalne
+        all_videos = Video.objects.all()
+        all_shorts = Short.objects.all()
+        all_users = User.objects.all()
+        
+        stats = {
+            'total_users': all_users.count(),
+            'active_users': all_users.filter(is_active=True).count(),
+            'total_videos': all_videos.count(),
+            'total_shorts': all_shorts.count(),
+            'published_shorts': all_shorts.filter(upload_status='published').count(),
+            'total_views': all_shorts.filter(upload_status='published').aggregate(Sum('views'))['views__sum'] or 0,
+        }
+        
+        # Ostatnie wideo i shorty ze wszystkich użytkowników
+        recent_videos = all_videos.order_by('-created_at')[:10]
+        recent_shorts = all_shorts.order_by('-created_at')[:15]
+        
+        # Użytkownicy z najwyższą aktywnością
+        top_users = User.objects.annotate(
+            video_count=Count('videos'),
+            short_count=Count('videos__shorts')
+        ).filter(video_count__gt=0).order_by('-video_count')[:10]
+        
+        context = {
+            'stats': stats,
+            'recent_videos': recent_videos,
+            'recent_shorts': recent_shorts,
+            'top_users': top_users,
+        }
+        
+        return render(request, 'uploader/moderator_dashboard.html', context)
+    except Exception as e:
+        logger.error(f'Error loading moderator dashboard: {str(e)}')
+        messages.error(request, '❌ Wystąpił błąd podczas ładowania dashboardu moderatora.')
+        return redirect('uploader:dashboard')
+
+
+@login_required
+def admin_dashboard(request):
+    """Dashboard dla administratora"""
+    if not request.user.is_admin_user():
+        messages.error(request, '❌ Brak dostępu do panelu administratora.')
+        return redirect('uploader:dashboard')
+    
+    try:
+        from django.db.models import Sum, Count, Avg
+        from django.utils import timezone
+        from datetime import timedelta
+        
+        # Statystyki systemowe
+        all_users = User.objects.all()
+        all_videos = Video.objects.all()
+        all_shorts = Short.objects.all()
+        all_yt_accounts = YTAccount.objects.all()
+        
+        # Użytkownicy według ról
+        users_by_role = {
+            'admin': all_users.filter(role__symbol='admin').count(),
+            'moderator': all_users.filter(role__symbol='moderator').count(),
+            'user': all_users.filter(role__symbol='user').count(),
+        }
+        
+        # Statystyki z ostatnich 30 dni
+        thirty_days_ago = timezone.now() - timedelta(days=30)
+        recent_users = all_users.filter(date_joined__gte=thirty_days_ago).count()
+        recent_videos = all_videos.filter(created_at__gte=thirty_days_ago).count()
+        recent_shorts = all_shorts.filter(created_at__gte=thirty_days_ago).count()
+        
+        stats = {
+            'total_users': all_users.count(),
+            'active_users': all_users.filter(is_active=True).count(),
+            'users_by_role': users_by_role,
+            'recent_users_30d': recent_users,
+            'total_videos': all_videos.count(),
+            'recent_videos_30d': recent_videos,
+            'processing_videos': all_videos.filter(status='processing').count(),
+            'failed_videos': all_videos.filter(status='failed').count(),
+            'total_shorts': all_shorts.count(),
+            'recent_shorts_30d': recent_shorts,
+            'published_shorts': all_shorts.filter(upload_status='published').count(),
+            'failed_shorts': all_shorts.filter(upload_status='failed').count(),
+            'total_views': all_shorts.filter(upload_status='published').aggregate(Sum('views'))['views__sum'] or 0,
+            'avg_views_per_short': all_shorts.filter(upload_status='published').aggregate(Avg('views'))['views__avg'] or 0,
+            'total_yt_accounts': all_yt_accounts.count(),
+            'active_yt_accounts': all_yt_accounts.filter(is_active=True).count(),
+        }
+        
+        # Top użytkownicy
+        top_users = User.objects.annotate(
+            video_count=Count('videos'),
+            short_count=Count('videos__shorts'),
+            total_views=Sum('videos__shorts__views')
+        ).filter(video_count__gt=0).order_by('-total_views')[:10]
+        
+        # Ostatnia aktywność
+        recent_videos_list = all_videos.order_by('-created_at')[:10]
+        recent_shorts_list = all_shorts.order_by('-created_at')[:10]
+        recent_users_list = all_users.order_by('-date_joined')[:10]
+        
+        context = {
+            'stats': stats,
+            'top_users': top_users,
+            'recent_videos': recent_videos_list,
+            'recent_shorts': recent_shorts_list,
+            'recent_users': recent_users_list,
+        }
+        
+        return render(request, 'uploader/admin_dashboard.html', context)
+    except Exception as e:
+        logger.error(f'Error loading admin dashboard: {str(e)}')
+        messages.error(request, '❌ Wystąpił błąd podczas ładowania dashboardu administratora.')
+        return redirect('uploader:dashboard')
 
 
 # ============================================================================

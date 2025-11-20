@@ -1,0 +1,160 @@
+{% extends 'uploader/base_authenticated.html' %}
+
+{% block title %}Panel Moderatora{% endblock %}
+{% block page_title %}Panel Moderatora{% endblock %}
+
+{% block content %}
+<!-- Role Badge -->
+<div class="mb-6 inline-flex items-center px-4 py-2 bg-blue-100 text-blue-800 rounded-full">
+    <i class="fas fa-shield-alt mr-2"></i>
+    <span class="font-semibold">Moderator</span>
+</div>
+
+<!-- Stats Cards -->
+<div class="grid grid-cols-1 gap-5 sm:grid-cols-2 lg:grid-cols-3 mb-8">
+    <div class="bg-white overflow-hidden shadow-lg rounded-lg hover:shadow-xl transition-shadow">
+        <div class="p-5">
+            <div class="flex items-center">
+                <div class="flex-shrink-0">
+                    <i class="fas fa-users text-3xl text-blue-500"></i>
+                </div>
+                <div class="ml-5 w-0 flex-1">
+                    <dl>
+                        <dt class="text-sm font-medium text-gray-500 truncate">Użytkownicy</dt>
+                        <dd class="text-3xl font-semibold text-gray-900">{{ stats.total_users }}</dd>
+                        <dd class="text-xs text-gray-500">Aktywni: {{ stats.active_users }}</dd>
+                    </dl>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div class="bg-white overflow-hidden shadow-lg rounded-lg hover:shadow-xl transition-shadow">
+        <div class="p-5">
+            <div class="flex items-center">
+                <div class="flex-shrink-0">
+                    <i class="fas fa-video text-3xl text-purple-500"></i>
+                </div>
+                <div class="ml-5 w-0 flex-1">
+                    <dl>
+                        <dt class="text-sm font-medium text-gray-500 truncate">Wszystkie Wideo</dt>
+                        <dd class="text-3xl font-semibold text-gray-900">{{ stats.total_videos }}</dd>
+                    </dl>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div class="bg-white overflow-hidden shadow-lg rounded-lg hover:shadow-xl transition-shadow">
+        <div class="p-5">
+            <div class="flex items-center">
+                <div class="flex-shrink-0">
+                    <i class="fas fa-film text-3xl text-green-500"></i>
+                </div>
+                <div class="ml-5 w-0 flex-1">
+                    <dl>
+                        <dt class="text-sm font-medium text-gray-500 truncate">Shorty</dt>
+                        <dd class="text-3xl font-semibold text-gray-900">{{ stats.total_shorts }}</dd>
+                        <dd class="text-xs text-gray-500">Opublikowane: {{ stats.published_shorts }}</dd>
+                    </dl>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<div class="grid grid-cols-1 lg:grid-cols-2 gap-8 mb-8">
+    <!-- Top Users -->
+    <div class="bg-white shadow-lg rounded-lg overflow-hidden">
+        <div class="px-6 py-4 border-b border-gray-200">
+            <h3 class="text-lg font-semibold text-gray-900">
+                <i class="fas fa-trophy text-yellow-500 mr-2"></i>Najaktywniejszi użytkownicy
+            </h3>
+        </div>
+        <div class="divide-y divide-gray-200">
+            {% for user in top_users %}
+            <div class="px-6 py-4 hover:bg-gray-50">
+                <div class="flex items-center justify-between">
+                    <div>
+                        <p class="text-sm font-medium text-gray-900">{{ user.username }}</p>
+                        <p class="text-xs text-gray-500">{{ user.email }}</p>
+                    </div>
+                    <div class="text-right">
+                        <p class="text-sm font-semibold text-gray-900">{{ user.video_count }} wideo</p>
+                        <p class="text-xs text-gray-500">{{ user.short_count }} shortów</p>
+                    </div>
+                </div>
+            </div>
+            {% empty %}
+            <div class="px-6 py-8 text-center text-gray-500">
+                <p>Brak danych</p>
+            </div>
+            {% endfor %}
+        </div>
+    </div>
+
+    <!-- Recent Videos -->
+    <div class="bg-white shadow-lg rounded-lg overflow-hidden">
+        <div class="px-6 py-4 border-b border-gray-200">
+            <h3 class="text-lg font-semibold text-gray-900">
+                <i class="fas fa-video mr-2"></i>Ostatnie wideo
+            </h3>
+        </div>
+        <div class="divide-y divide-gray-200">
+            {% for video in recent_videos %}
+            <div class="px-6 py-4 hover:bg-gray-50">
+                <div class="flex items-center justify-between">
+                    <div class="flex-1">
+                        <p class="text-sm font-medium text-gray-900">{{ video.title|truncatechars:40 }}</p>
+                        <p class="text-xs text-gray-500">{{ video.user.username }} • {{ video.created_at|date:"d.m.Y H:i" }}</p>
+                    </div>
+                    <span class="px-3 py-1 text-xs font-semibold rounded-full
+                        {% if video.status == 'completed' %}bg-green-100 text-green-800
+                        {% elif video.status == 'processing' %}bg-blue-100 text-blue-800
+                        {% elif video.status == 'failed' %}bg-red-100 text-red-800
+                        {% else %}bg-yellow-100 text-yellow-800{% endif %}">
+                        {{ video.get_status_display }}
+                    </span>
+                </div>
+            </div>
+            {% empty %}
+            <div class="px-6 py-8 text-center text-gray-500">
+                <p>Brak wideo</p>
+            </div>
+            {% endfor %}
+        </div>
+    </div>
+</div>
+
+<!-- Recent Shorts -->
+<div class="bg-white shadow-lg rounded-lg overflow-hidden">
+    <div class="px-6 py-4 border-b border-gray-200">
+        <h3 class="text-lg font-semibold text-gray-900">
+            <i class="fas fa-film mr-2"></i>Ostatnie shorty
+        </h3>
+    </div>
+    <div class="divide-y divide-gray-200">
+        {% for short in recent_shorts %}
+        <div class="px-6 py-4 hover:bg-gray-50">
+            <div class="flex items-center justify-between">
+                <div class="flex-1">
+                    <p class="text-sm font-medium text-gray-900">{{ short.title|truncatechars:50 }}</p>
+                    <p class="text-xs text-gray-500">{{ short.video.user.username }} • {{ short.created_at|date:"d.m.Y H:i" }}</p>
+                </div>
+                <span class="px-3 py-1 text-xs font-semibold rounded-full
+                    {% if short.upload_status == 'published' %}bg-green-100 text-green-800
+                    {% elif short.upload_status == 'uploading' %}bg-blue-100 text-blue-800
+                    {% elif short.upload_status == 'failed' %}bg-red-100 text-red-800
+                    {% else %}bg-yellow-100 text-yellow-800{% endif %}">
+                    {{ short.get_upload_status_display }}
+                </span>
+            </div>
+        </div>
+        {% empty %}
+        <div class="px-6 py-8 text-center text-gray-500">
+            <p>Brak shortów</p>
+        </div>
+        {% endfor %}
+    </div>
+</div>
+{% endblock %}

@@ -1,0 +1,217 @@
+{% extends 'uploader/base_authenticated.html' %}
+
+{% block title %}Panel Administratora{% endblock %}
+{% block page_title %}Panel Administratora{% endblock %}
+
+{% block content %}
+<!-- Role Badge -->
+<div class="mb-6 inline-flex items-center px-4 py-2 bg-red-100 text-red-800 rounded-full">
+    <i class="fas fa-crown mr-2"></i>
+    <span class="font-semibold">Administrator</span>
+</div>
+
+<!-- Main Stats -->
+<div class="grid grid-cols-1 gap-5 sm:grid-cols-2 lg:grid-cols-4 mb-8">
+    <div class="bg-gradient-to-br from-blue-500 to-blue-600 text-white shadow-lg rounded-lg p-6">
+        <div class="flex items-center justify-between">
+            <div>
+                <p class="text-blue-100 text-sm font-medium">Użytkownicy</p>
+                <p class="text-3xl font-bold mt-2">{{ stats.total_users }}</p>
+                <p class="text-blue-100 text-xs mt-1">Aktywni: {{ stats.active_users }}</p>
+            </div>
+            <i class="fas fa-users text-4xl text-blue-200"></i>
+        </div>
+    </div>
+
+    <div class="bg-gradient-to-br from-purple-500 to-purple-600 text-white shadow-lg rounded-lg p-6">
+        <div class="flex items-center justify-between">
+            <div>
+                <p class="text-purple-100 text-sm font-medium">Wideo</p>
+                <p class="text-3xl font-bold mt-2">{{ stats.total_videos }}</p>
+                <p class="text-purple-100 text-xs mt-1">+{{ stats.recent_videos_30d }} (30 dni)</p>
+            </div>
+            <i class="fas fa-video text-4xl text-purple-200"></i>
+        </div>
+    </div>
+
+    <div class="bg-gradient-to-br from-green-500 to-green-600 text-white shadow-lg rounded-lg p-6">
+        <div class="flex items-center justify-between">
+            <div>
+                <p class="text-green-100 text-sm font-medium">Shorty</p>
+                <p class="text-3xl font-bold mt-2">{{ stats.total_shorts }}</p>
+                <p class="text-green-100 text-xs mt-1">Opublikowane: {{ stats.published_shorts }}</p>
+            </div>
+            <i class="fas fa-film text-4xl text-green-200"></i>
+        </div>
+    </div>
+
+    <div class="bg-gradient-to-br from-red-500 to-red-600 text-white shadow-lg rounded-lg p-6">
+        <div class="flex items-center justify-between">
+            <div>
+                <p class="text-red-100 text-sm font-medium">Wyświetlenia</p>
+                <p class="text-3xl font-bold mt-2">{{ stats.total_views|default:"0" }}</p>
+                <p class="text-red-100 text-xs mt-1">Średnio: {{ stats.avg_views_per_short|floatformat:0 }}</p>
+            </div>
+            <i class="fas fa-eye text-4xl text-red-200"></i>
+        </div>
+    </div>
+</div>
+
+<!-- Secondary Stats -->
+<div class="grid grid-cols-1 gap-5 sm:grid-cols-2 lg:grid-cols-4 mb-8">
+    <div class="bg-white shadow-lg rounded-lg p-5">
+        <div class="flex items-center justify-between">
+            <div>
+                <p class="text-sm text-gray-500">Nowi użytkownicy (30d)</p>
+                <p class="text-2xl font-bold text-gray-900 mt-1">{{ stats.recent_users_30d }}</p>
+            </div>
+            <i class="fas fa-user-plus text-2xl text-blue-400"></i>
+        </div>
+    </div>
+
+    <div class="bg-white shadow-lg rounded-lg p-5">
+        <div class="flex items-center justify-between">
+            <div>
+                <p class="text-sm text-gray-500">Wideo w przetwarzaniu</p>
+                <p class="text-2xl font-bold text-gray-900 mt-1">{{ stats.processing_videos }}</p>
+            </div>
+            <i class="fas fa-spinner text-2xl text-purple-400"></i>
+        </div>
+    </div>
+
+    <div class="bg-white shadow-lg rounded-lg p-5">
+        <div class="flex items-center justify-between">
+            <div>
+                <p class="text-sm text-gray-500">Konta YouTube</p>
+                <p class="text-2xl font-bold text-gray-900 mt-1">{{ stats.total_yt_accounts }}</p>
+                <p class="text-xs text-gray-500 mt-1">Aktywne: {{ stats.active_yt_accounts }}</p>
+            </div>
+            <i class="fab fa-youtube text-2xl text-red-500"></i>
+        </div>
+    </div>
+
+    <div class="bg-white shadow-lg rounded-lg p-5">
+        <div class="flex items-center justify-between">
+            <div>
+                <p class="text-sm text-gray-500">Błędy</p>
+                <p class="text-2xl font-bold text-gray-900 mt-1">{{ stats.failed_videos|add:stats.failed_shorts }}</p>
+            </div>
+            <i class="fas fa-exclamation-triangle text-2xl text-yellow-500"></i>
+        </div>
+    </div>
+</div>
+
+<!-- Users by Role -->
+<div class="bg-white shadow-lg rounded-lg p-6 mb-8">
+    <h3 class="text-lg font-semibold text-gray-900 mb-4">
+        <i class="fas fa-users-cog mr-2"></i>Użytkownicy według ról
+    </h3>
+    <div class="grid grid-cols-3 gap-4">
+        <div class="text-center p-4 bg-red-50 rounded-lg">
+            <p class="text-sm text-gray-600">Administratorzy</p>
+            <p class="text-3xl font-bold text-red-600 mt-1">{{ stats.users_by_role.admin }}</p>
+        </div>
+        <div class="text-center p-4 bg-blue-50 rounded-lg">
+            <p class="text-sm text-gray-600">Moderatorzy</p>
+            <p class="text-3xl font-bold text-blue-600 mt-1">{{ stats.users_by_role.moderator }}</p>
+        </div>
+        <div class="text-center p-4 bg-green-50 rounded-lg">
+            <p class="text-sm text-gray-600">Użytkownicy</p>
+            <p class="text-3xl font-bold text-green-600 mt-1">{{ stats.users_by_role.user }}</p>
+        </div>
+    </div>
+</div>
+
+<div class="grid grid-cols-1 lg:grid-cols-3 gap-8">
+    <!-- Top Users -->
+    <div class="bg-white shadow-lg rounded-lg overflow-hidden">
+        <div class="px-6 py-4 border-b border-gray-200 bg-gradient-to-r from-yellow-400 to-yellow-500">
+            <h3 class="text-lg font-semibold text-white">
+                <i class="fas fa-trophy mr-2"></i>Top 10 użytkowników
+            </h3>
+        </div>
+        <div class="divide-y divide-gray-200 max-h-96 overflow-y-auto">
+            {% for user in top_users %}
+            <div class="px-6 py-3">
+                <div class="flex items-center justify-between">
+                    <div>
+                        <p class="text-sm font-medium text-gray-900">{{ user.username }}</p>
+                        <p class="text-xs text-gray-500">{{ user.email }}</p>
+                    </div>
+                    <div class="text-right">
+                        <p class="text-sm font-semibold text-gray-900">{{ user.total_views|default:"0" }} wyświetleń</p>
+                        <p class="text-xs text-gray-500">{{ user.video_count }} wideo, {{ user.short_count }} shortów</p>
+                    </div>
+                </div>
+            </div>
+            {% empty %}
+            <div class="px-6 py-8 text-center text-gray-500">
+                <p>Brak danych</p>
+            </div>
+            {% endfor %}
+        </div>
+    </div>
+
+    <!-- Recent Videos -->
+    <div class="bg-white shadow-lg rounded-lg overflow-hidden">
+        <div class="px-6 py-4 border-b border-gray-200">
+            <h3 class="text-lg font-semibold text-gray-900">
+                <i class="fas fa-video mr-2"></i>Ostatnie wideo
+            </h3>
+        </div>
+        <div class="divide-y divide-gray-200 max-h-96 overflow-y-auto">
+            {% for video in recent_videos %}
+            <div class="px-6 py-3">
+                <p class="text-sm font-medium text-gray-900">{{ video.title|truncatechars:30 }}</p>
+                <p class="text-xs text-gray-500">{{ video.user.username }} • {{ video.created_at|date:"d.m.Y H:i" }}</p>
+                <span class="inline-block mt-1 px-2 py-1 text-xs font-semibold rounded-full
+                    {% if video.status == 'completed' %}bg-green-100 text-green-800
+                    {% elif video.status == 'processing' %}bg-blue-100 text-blue-800
+                    {% elif video.status == 'failed' %}bg-red-100 text-red-800
+                    {% else %}bg-yellow-100 text-yellow-800{% endif %}">
+                    {{ video.get_status_display }}
+                </span>
+            </div>
+            {% empty %}
+            <div class="px-6 py-8 text-center text-gray-500">
+                <p>Brak wideo</p>
+            </div>
+            {% endfor %}
+        </div>
+    </div>
+
+    <!-- Recent Users -->
+    <div class="bg-white shadow-lg rounded-lg overflow-hidden">
+        <div class="px-6 py-4 border-b border-gray-200">
+            <h3 class="text-lg font-semibold text-gray-900">
+                <i class="fas fa-user-plus mr-2"></i>Nowi użytkownicy
+            </h3>
+        </div>
+        <div class="divide-y divide-gray-200 max-h-96 overflow-y-auto">
+            {% for user in recent_users %}
+            <div class="px-6 py-3">
+                <div class="flex items-center justify-between">
+                    <div>
+                        <p class="text-sm font-medium text-gray-900">{{ user.username }}</p>
+                        <p class="text-xs text-gray-500">{{ user.email }}</p>
+                    </div>
+                    <div class="text-right">
+                        <p class="text-xs text-gray-500">{{ user.date_joined|date:"d.m.Y" }}</p>
+                        <span class="inline-block px-2 py-1 text-xs rounded-full
+                            {% if user.role.symbol == 'admin' %}bg-red-100 text-red-800
+                            {% elif user.role.symbol == 'moderator' %}bg-blue-100 text-blue-800
+                            {% else %}bg-gray-100 text-gray-800{% endif %}">
+                            {{ user.role.name }}
+                        </span>
+                    </div>
+                </div>
+            </div>
+            {% empty %}
+            <div class="px-6 py-8 text-center text-gray-500">
+                <p>Brak użytkowników</p>
+            </div>
+            {% endfor %}
+        </div>
+    </div>
+</div>
+{% endblock %}

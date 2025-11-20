@@ -19,6 +19,9 @@ urlpatterns = [
     
     # Dashboard
     path('dashboard/', views.dashboard_view, name='dashboard'),
+    path('dashboard/user/', views.user_dashboard, name='user_dashboard'),
+    path('dashboard/moderator/', views.moderator_dashboard, name='moderator_dashboard'),
+    path('dashboard/admin/', views.admin_dashboard, name='admin_dashboard'),
     
     # Wideo
     path('videos/', views.VideoListView.as_view(), name='video_list'),
