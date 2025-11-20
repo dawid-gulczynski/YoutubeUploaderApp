@@ -102,49 +102,40 @@ YoutubeUploaderApp/
 - Automatyczny interfejs do zarządzania danymi
 - Dostępny pod `/admin/`
 
-## 🚀 Instalacja i uruchomienie
+## 🚀 Szybki Start (7 minut)
 
 ### 1. Zainstaluj zależności
 ```bash
 pip install -r requirements.txt
 ```
 
-### 2. Utwórz plik .env (konfiguracja serwera)
+### 2. Skonfiguruj Google OAuth (dla logowania)
+📖 **Szczegółowy poradnik:** [QUICKSTART.md](QUICKSTART.md) (tylko 7 minut!)
+
+**W skrócie:**
+1. Utwórz projekt w [Google Cloud Console](https://console.cloud.google.com)
+2. Skonfiguruj OAuth Consent Screen
+3. Utwórz OAuth Client ID (Web application)
+4. Redirect URI: `http://localhost:8000/accounts/google/login/callback/`
+5. Wklej Client ID i Secret do `.env`
+
+### 3. Inicjalizuj bazę danych
 ```bash
-# Skopiuj przykładowy plik
-cp .env.example .env
-
-# Edytuj .env i ustaw:
-# - SECRET_KEY (wygeneruj nowy!)
-# - GOOGLE_LOGIN_CLIENT_ID (Google OAuth dla logowania)
-# - GOOGLE_LOGIN_CLIENT_SECRET
-```
-
-**Jak zdobyć Google OAuth credentials dla logowania?**
-1. Przejdź do [Google Cloud Console](https://console.cloud.google.com)
-2. Utwórz projekt → APIs & Services → Credentials
-3. Create OAuth 2.0 Client ID → Web application
-4. Authorized redirect URIs: `http://localhost:8000/accounts/google/login/callback/`
-5. Skopiuj Client ID i Secret do `.env`
-
-### 3. Wykonaj migracje bazy danych
-```bash
-python manage.py makemigrations
 python manage.py migrate
-python manage.py init_roles  # Utwórz role użytkowników
+python manage.py init_roles
+python manage.py setup_google_oauth
 ```
 
-### 4. Utwórz superusera (opcjonalnie)
-```bash
-python manage.py createsuperuser
-```
-
-### 5. Uruchom serwer deweloperski
+### 4. Uruchom serwer
 ```bash
 python manage.py runserver
 ```
 
-Aplikacja będzie dostępna pod adresem: `http://127.0.0.1:8000/`
+### 5. Testuj!
+1. Otwórz: http://localhost:8000/login/
+2. Kliknij **"Zaloguj przez Google"**
+3. Wybierz konto Google
+4. 🎉 Gotowe!
 
 ## 📱 Funkcjonalności
 

@@ -4,14 +4,21 @@ from . import views
 app_name = 'uploader'
 
 urlpatterns = [
+    # Strona główna
+    path('', views.home_view, name='home'),
+    
     # Autentykacja
     path('register/', views.register_view, name='register'),
     path('login/', views.login_view, name='login'),
     path('logout/', views.logout_view, name='logout'),
     path('profile/edit/', views.profile_edit_view, name='profile_edit'),
     
+    # Google OAuth (własna implementacja)
+    path('auth/google/', views.google_login_direct, name='google_login_direct'),
+    path('auth/google/callback/', views.google_callback, name='google_callback'),
+    
     # Dashboard
-    path('', views.dashboard_view, name='dashboard'),
+    path('dashboard/', views.dashboard_view, name='dashboard'),
     
     # Wideo
     path('videos/', views.VideoListView.as_view(), name='video_list'),

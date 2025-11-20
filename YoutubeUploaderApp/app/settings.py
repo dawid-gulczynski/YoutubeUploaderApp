@@ -12,6 +12,10 @@ https://docs.djangoproject.com/en/5.2/ref/settings/
 
 import os
 from pathlib import Path
+from dotenv import load_dotenv
+
+# Load environment variables from .env file
+load_dotenv()
 
 # Build paths inside the project like this: BASE_DIR / 'subdir'.
 BASE_DIR = Path(__file__).resolve().parent.parent
@@ -195,13 +199,17 @@ AUTHENTICATION_BACKENDS = [
 ]
 
 # Allauth settings
-ACCOUNT_AUTHENTICATION_METHOD = 'email'  # Można logować się emailem lub username
+ACCOUNT_AUTHENTICATION_METHOD = 'username_email'  # Można logować się emailem lub username
 ACCOUNT_EMAIL_REQUIRED = True
-ACCOUNT_USERNAME_REQUIRED = False
+ACCOUNT_USERNAME_REQUIRED = True
 ACCOUNT_EMAIL_VERIFICATION = 'optional'  # 'mandatory', 'optional', lub 'none'
 ACCOUNT_SIGNUP_PASSWORD_ENTER_TWICE = True
 ACCOUNT_SESSION_REMEMBER = True
 ACCOUNT_UNIQUE_EMAIL = True
+
+# Custom adapters
+ACCOUNT_ADAPTER = 'uploader.adapters.CustomAccountAdapter'
+SOCIALACCOUNT_ADAPTER = 'uploader.adapters.CustomSocialAccountAdapter'
 
 # Social account settings
 SOCIALACCOUNT_AUTO_SIGNUP = True
@@ -218,6 +226,7 @@ SOCIALACCOUNT_PROVIDERS = {
         ],
         'AUTH_PARAMS': {
             'access_type': 'online',
+            'prompt': 'select_account',  # Zawsze pokazuj wybór konta
         },
         'APP': {
             'client_id': os.getenv('GOOGLE_LOGIN_CLIENT_ID', ''),
@@ -228,5 +237,6 @@ SOCIALACCOUNT_PROVIDERS = {
 }
 
 # Redirect after login/logout
-LOGIN_REDIRECT_URL = '/dashboard/'
-ACCOUNT_LOGOUT_REDIRECT_URL = '/accounts/login/'
+LOGIN_REDIRECT_URL = 'uploader:dashboard'
+ACCOUNT_LOGOUT_REDIRECT_URL = 'uploader:login'
+LOGIN_URL = 'uploader:login'

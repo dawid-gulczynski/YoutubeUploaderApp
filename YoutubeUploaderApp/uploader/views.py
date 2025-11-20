@@ -22,6 +22,191 @@ logger = logging.getLogger(__name__)
 
 
 # ============================================================================
+# STRONA GŁÓWNA
+# ============================================================================
+
+def home_view(request):
+    """Strona główna - przekierowuje do dashboard lub logowania"""
+    if request.user.is_authenticated:
+        return redirect('uploader:dashboard')
+    return redirect('uploader:login')
+
+
+def google_login_direct(request):
+    """Bezpośrednie przekierowanie do Google OAuth"""
+    from google_auth_oauthlib.flow import Flow
+    from django.conf import settings
+    import os
+    
+    # Wyłącz wymóg HTTPS w developmencie
+    os.environ['OAUTHLIB_INSECURE_TRANSPORT'] = '1'
+    
+    # Pobierz credentials z .env
+    client_id = os.getenv('GOOGLE_LOGIN_CLIENT_ID', '')
+    client_secret = os.getenv('GOOGLE_LOGIN_CLIENT_SECRET', '')
+    
+    if not client_id or not client_secret:
+        messages.error(request, '❌ Google OAuth nie jest skonfigurowany. Skontaktuj się z administratorem.')
+        return redirect('uploader:login')
+    
+    try:
+        # Utwórz client config
+        client_config = {
+            "web": {
+                "client_id": client_id,
+                "client_secret": client_secret,
+                "auth_uri": "https://accounts.google.com/o/oauth2/auth",
+                "token_uri": "https://oauth2.googleapis.com/token",
+                "redirect_uris": [request.build_absolute_uri(reverse('uploader:google_callback'))]
+            }
+        }
+        
+        # Utwórz OAuth flow
+        flow = Flow.from_client_config(
+            client_config,
+            scopes=['openid', 'https://www.googleapis.com/auth/userinfo.email', 'https://www.googleapis.com/auth/userinfo.profile'],
+            redirect_uri=request.build_absolute_uri(reverse('uploader:google_callback'))
+        )
+        
+        # Generuj authorization URL
+        authorization_url, state = flow.authorization_url(
+            access_type='online',
+            prompt='select_account'
+        )
+        
+        # Zapisz state w sesji
+        request.session['google_oauth_state'] = state
+        
+        # Przekieruj bezpośrednio do Google
+        return redirect(authorization_url)
+        
+    except Exception as e:
+        logger.error(f'Google OAuth error: {str(e)}')
+        messages.error(request, f'❌ Błąd logowania przez Google: {str(e)}')
+        return redirect('uploader:login')
+
+
+def google_callback(request):
+    """Callback po autoryzacji Google"""
+    from google_auth_oauthlib.flow import Flow
+    from googleapiclient.discovery import build as google_build
+    import os
+    
+    # Wyłącz wymóg HTTPS w developmencie
+    os.environ['OAUTHLIB_INSECURE_TRANSPORT'] = '1'
+    
+    state = request.session.get('google_oauth_state')
+    if not state:
+        messages.error(request, '❌ Błąd: Brak state w sesji. Spróbuj ponownie.')
+        return redirect('uploader:login')
+    
+    client_id = os.getenv('GOOGLE_LOGIN_CLIENT_ID', '')
+    client_secret = os.getenv('GOOGLE_LOGIN_CLIENT_SECRET', '')
+    
+    try:
+        # Utwórz client config
+        client_config = {
+            "web": {
+                "client_id": client_id,
+                "client_secret": client_secret,
+                "auth_uri": "https://accounts.google.com/o/oauth2/auth",
+                "token_uri": "https://oauth2.googleapis.com/token",
+                "redirect_uris": [request.build_absolute_uri(reverse('uploader:google_callback'))]
+            }
+        }
+        
+        # Utwórz OAuth flow
+        flow = Flow.from_client_config(
+            client_config,
+            scopes=['openid', 'https://www.googleapis.com/auth/userinfo.email', 'https://www.googleapis.com/auth/userinfo.profile'],
+            state=state,
+            redirect_uri=request.build_absolute_uri(reverse('uploader:google_callback'))
+        )
+        
+        # Fetch token
+        flow.fetch_token(authorization_response=request.build_absolute_uri())
+        credentials = flow.credentials
+        
+        # Pobierz informacje o użytkowniku z Google
+        from google.oauth2.credentials import Credentials
+        from googleapiclient.discovery import build as google_build
+        
+        google_credentials = Credentials(
+            token=credentials.token,
+            refresh_token=credentials.refresh_token,
+            token_uri=credentials.token_uri,
+            client_id=credentials.client_id,
+            client_secret=credentials.client_secret,
+            scopes=credentials.scopes
+        )
+        
+        # Pobierz dane użytkownika
+        people_service = google_build('oauth2', 'v2', credentials=google_credentials)
+        user_info = people_service.userinfo().get().execute()
+        
+        google_id = user_info.get('id')
+        email = user_info.get('email')
+        name = user_info.get('name', '')
+        picture = user_info.get('picture', '')
+        
+        # Sprawdź czy użytkownik już istnieje
+        user = None
+        try:
+            # Najpierw szukaj po google_id
+            user = User.objects.get(google_id=google_id)
+        except User.DoesNotExist:
+            # Jeśli nie ma, szukaj po emailu
+            try:
+                user = User.objects.get(email=email)
+                # Aktualizuj dane Google
+                user.google_id = google_id
+                user.auth_provider = 'google'
+                user.google_email = email
+                user.google_picture = picture
+                user.save()
+            except User.DoesNotExist:
+                # Utwórz nowego użytkownika
+                username = email.split('@')[0]
+                # Upewnij się, że username jest unikalny
+                base_username = username
+                counter = 1
+                while User.objects.filter(username=username).exists():
+                    username = f"{base_username}{counter}"
+                    counter += 1
+                
+                # Utwórz rolę jeśli nie istnieje
+                user_role, created = Role.objects.get_or_create(
+                    symbol='user',
+                    defaults={'name': 'Użytkownik'}
+                )
+                
+                user = User.objects.create(
+                    username=username,
+                    email=email,
+                    google_id=google_id,
+                    auth_provider='google',
+                    google_email=email,
+                    google_picture=picture,
+                    role=user_role,
+                    email_verified=True
+                )
+        
+        # Zaloguj użytkownika
+        login(request, user, backend='django.contrib.auth.backends.ModelBackend')
+        
+        # Wyczyść state z sesji
+        request.session.pop('google_oauth_state', None)
+        
+        messages.success(request, f'✅ Witaj, {user.username}!')
+        return redirect('uploader:dashboard')
+        
+    except Exception as e:
+        logger.error(f'Google callback error: {str(e)}')
+        messages.error(request, f'❌ Błąd podczas logowania: {str(e)}')
+        return redirect('uploader:login')
+
+
+# ============================================================================
 # AUTENTYKACJA
 # ============================================================================
 
