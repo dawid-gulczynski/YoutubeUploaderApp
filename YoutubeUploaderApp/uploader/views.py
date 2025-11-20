@@ -587,6 +587,9 @@ def youtube_oauth_start(request):
     import tempfile
     import os
     
+    # Wyłącz wymóg HTTPS w developmencie
+    os.environ['OAUTHLIB_INSECURE_TRANSPORT'] = '1'
+    
     client_id = request.session.get('yt_client_id')
     client_secret = request.session.get('yt_client_secret')
     
@@ -620,7 +623,6 @@ def youtube_oauth_start(request):
         # Generuj authorization URL
         authorization_url, state = flow.authorization_url(
             access_type='offline',
-            include_granted_scopes='true',
             prompt='consent'
         )
         
@@ -640,6 +642,10 @@ def youtube_oauth_callback(request):
     """Krok 3: Callback po autoryzacji OAuth - zapisz tokeny użytkownika"""
     from google_auth_oauthlib.flow import Flow
     from googleapiclient.discovery import build
+    import os
+    
+    # Wyłącz wymóg HTTPS w developmencie
+    os.environ['OAUTHLIB_INSECURE_TRANSPORT'] = '1'
     
     state = request.session.get('oauth_state')
     client_id = request.session.get('yt_client_id')
