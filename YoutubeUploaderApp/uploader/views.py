@@ -4,6 +4,7 @@ Widoki aplikacji YouTube Uploader
 from django.shortcuts import render, redirect, get_object_or_404
 from django.contrib import messages
 from django.contrib.auth import login, logout, authenticate
+from django.utils.safestring import mark_safe
 from django.contrib.auth.decorators import login_required
 from django.contrib.auth.mixins import LoginRequiredMixin
 from django.views.generic import ListView, CreateView, DetailView, UpdateView
@@ -545,13 +546,16 @@ class ShortEditView(LoginRequiredMixin, UpdateView):
                 messages.error(self.request, '❌ Musisz najpierw połączyć konto YouTube!')
                 return redirect('uploader:connect_youtube')
             
+            # Pobierz tagi z formularza
+            tags = form.cleaned_data.get('tags', '')
+            
             # Ustaw status "uploading"
             short.upload_status = 'uploading'
             short.save()
             
             try:
-                # Upload na YouTube
-                result = upload_short_to_youtube(short, yt_account)
+                # Upload na YouTube z tagami
+                result = upload_short_to_youtube(short, yt_account, tags)
                 
                 if result['success']:
                     # Sukces - zapisz dane YouTube
@@ -563,8 +567,7 @@ class ShortEditView(LoginRequiredMixin, UpdateView):
                     
                     messages.success(
                         self.request,
-                        f'✅ Short został opublikowany na YouTube! <a href="{result["video_url"]}" target="_blank" class="underline">Zobacz na YouTube</a>',
-                        extra_tags='safe'
+                        mark_safe(f'✅ Short został opublikowany na YouTube! <a href="{result["video_url"]}" target="_blank" class="underline">Zobacz na YouTube</a>')
                     )
                 else:
                     # Błąd uploadu

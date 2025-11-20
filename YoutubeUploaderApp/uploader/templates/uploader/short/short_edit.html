@@ -106,10 +106,136 @@
                         <i class="fas fa-lightbulb mr-1"></i>
                         Oddziel tagi spacją (bez #). Przykład: fitness motywacja trening
                     </p>
+                    
+                    <!-- Popular Tags Suggestions -->
+                    <div class="mt-3">
+                        <p class="text-xs font-medium text-gray-700 mb-2">
+                            <i class="fas fa-fire text-orange-500 mr-1"></i>Popularne tagi na YouTube Shorts:
+                        </p>
+                        <div class="flex flex-wrap gap-2" id="tag-suggestions">
+                            <button type="button" class="tag-suggestion px-3 py-1 bg-gray-100 text-gray-700 rounded-full text-sm hover:bg-red-100 hover:text-red-700 transition-colors border border-gray-300" data-tag="viral">
+                                #viral
+                            </button>
+                            <button type="button" class="tag-suggestion px-3 py-1 bg-gray-100 text-gray-700 rounded-full text-sm hover:bg-red-100 hover:text-red-700 transition-colors border border-gray-300" data-tag="trending">
+                                #trending
+                            </button>
+                            <button type="button" class="tag-suggestion px-3 py-1 bg-gray-100 text-gray-700 rounded-full text-sm hover:bg-red-100 hover:text-red-700 transition-colors border border-gray-300" data-tag="shorts">
+                                #shorts
+                            </button>
+                            <button type="button" class="tag-suggestion px-3 py-1 bg-gray-100 text-gray-700 rounded-full text-sm hover:bg-red-100 hover:text-red-700 transition-colors border border-gray-300" data-tag="funny">
+                                #funny
+                            </button>
+                            <button type="button" class="tag-suggestion px-3 py-1 bg-gray-100 text-gray-700 rounded-full text-sm hover:bg-red-100 hover:text-red-700 transition-colors border border-gray-300" data-tag="entertainment">
+                                #entertainment
+                            </button>
+                            <button type="button" class="tag-suggestion px-3 py-1 bg-gray-100 text-gray-700 rounded-full text-sm hover:bg-red-100 hover:text-red-700 transition-colors border border-gray-300" data-tag="fyp">
+                                #fyp
+                            </button>
+                            <button type="button" class="tag-suggestion px-3 py-1 bg-gray-100 text-gray-700 rounded-full text-sm hover:bg-red-100 hover:text-red-700 transition-colors border border-gray-300" data-tag="explore">
+                                #explore
+                            </button>
+                            <button type="button" class="tag-suggestion px-3 py-1 bg-gray-100 text-gray-700 rounded-full text-sm hover:bg-red-100 hover:text-red-700 transition-colors border border-gray-300" data-tag="reels">
+                                #reels
+                            </button>
+                            <button type="button" class="tag-suggestion px-3 py-1 bg-gray-100 text-gray-700 rounded-full text-sm hover:bg-red-100 hover:text-red-700 transition-colors border border-gray-300" data-tag="music">
+                                #music
+                            </button>
+                            <button type="button" class="tag-suggestion px-3 py-1 bg-gray-100 text-gray-700 rounded-full text-sm hover:bg-red-100 hover:text-red-700 transition-colors border border-gray-300" data-tag="dance">
+                                #dance
+                            </button>
+                            <button type="button" class="tag-suggestion px-3 py-1 bg-gray-100 text-gray-700 rounded-full text-sm hover:bg-red-100 hover:text-red-700 transition-colors border border-gray-300" data-tag="comedy">
+                                #comedy
+                            </button>
+                            <button type="button" class="tag-suggestion px-3 py-1 bg-gray-100 text-gray-700 rounded-full text-sm hover:bg-red-100 hover:text-red-700 transition-colors border border-gray-300" data-tag="motivation">
+                                #motivation
+                            </button>
+                            <button type="button" class="tag-suggestion px-3 py-1 bg-gray-100 text-gray-700 rounded-full text-sm hover:bg-red-100 hover:text-red-700 transition-colors border border-gray-300" data-tag="fitness">
+                                #fitness
+                            </button>
+                            <button type="button" class="tag-suggestion px-3 py-1 bg-gray-100 text-gray-700 rounded-full text-sm hover:bg-red-100 hover:text-red-700 transition-colors border border-gray-300" data-tag="tutorial">
+                                #tutorial
+                            </button>
+                            <button type="button" class="tag-suggestion px-3 py-1 bg-gray-100 text-gray-700 rounded-full text-sm hover:bg-red-100 hover:text-red-700 transition-colors border border-gray-300" data-tag="howto">
+                                #howto
+                            </button>
+                            <button type="button" class="tag-suggestion px-3 py-1 bg-gray-100 text-gray-700 rounded-full text-sm hover:bg-red-100 hover:text-red-700 transition-colors border border-gray-300" data-tag="diy">
+                                #diy
+                            </button>
+                            <button type="button" class="tag-suggestion px-3 py-1 bg-gray-100 text-gray-700 rounded-full text-sm hover:bg-red-100 hover:text-red-700 transition-colors border border-gray-300" data-tag="lifestyle">
+                                #lifestyle
+                            </button>
+                            <button type="button" class="tag-suggestion px-3 py-1 bg-gray-100 text-gray-700 rounded-full text-sm hover:bg-red-100 hover:text-red-700 transition-colors border border-gray-300" data-tag="vlog">
+                                #vlog
+                            </button>
+                            <button type="button" class="tag-suggestion px-3 py-1 bg-gray-100 text-gray-700 rounded-full text-sm hover:bg-red-100 hover:text-red-700 transition-colors border border-gray-300" data-tag="gaming">
+                                #gaming
+                            </button>
+                            <button type="button" class="tag-suggestion px-3 py-1 bg-gray-100 text-gray-700 rounded-full text-sm hover:bg-red-100 hover:text-red-700 transition-colors border border-gray-300" data-tag="food">
+                                #food
+                            </button>
+                        </div>
+                    </div>
+                    
                     {% if form.tags.errors %}
                     <p class="text-sm text-red-600 mt-1">{{ form.tags.errors.0 }}</p>
                     {% endif %}
                 </div>
+                
+                <script>
+                document.addEventListener('DOMContentLoaded', function() {
+                    const tagsInput = document.getElementById('id_tags');
+                    const tagButtons = document.querySelectorAll('.tag-suggestion');
+                    
+                    if (!tagsInput) {
+                        console.error('Tags input not found');
+                        return;
+                    }
+                    
+                    // Funkcja do aktualizacji stanu przycisków na podstawie zawartości inputa
+                    function updateButtonStates() {
+                        const inputValue = tagsInput.value.toLowerCase();
+                        const currentTags = inputValue.split(' ').map(tag => tag.replace('#', '')).filter(tag => tag.length > 0);
+                        
+                        tagButtons.forEach(button => {
+                            const tag = button.dataset.tag;
+                            if (currentTags.includes(tag)) {
+                                button.classList.remove('bg-gray-100', 'text-gray-700', 'border-gray-300');
+                                button.classList.add('bg-red-600', 'text-white', 'border-red-600');
+                            } else {
+                                button.classList.remove('bg-red-600', 'text-white', 'border-red-600');
+                                button.classList.add('bg-gray-100', 'text-gray-700', 'border-gray-300');
+                            }
+                        });
+                    }
+                    
+                    // Inicjalizacja stanów przycisków
+                    updateButtonStates();
+                    
+                    // Obsługa kliknięcia na tag
+                    tagButtons.forEach(button => {
+                        button.addEventListener('click', function() {
+                            const tag = this.dataset.tag;
+                            const inputValue = tagsInput.value.toLowerCase();
+                            let currentTags = inputValue.split(' ').map(t => t.replace('#', '')).filter(t => t.length > 0);
+                            
+                            if (currentTags.includes(tag)) {
+                                // Usuń tag
+                                currentTags = currentTags.filter(t => t !== tag);
+                            } else {
+                                // Dodaj tag
+                                currentTags.push(tag);
+                            }
+                            
+                            // Dodaj # do każdego tagu
+                            tagsInput.value = currentTags.map(t => '#' + t).join(' ');
+                            updateButtonStates();
+                        });
+                    });
+                    
+                    // Aktualizuj przyciski gdy użytkownik wpisuje coś ręcznie
+                    tagsInput.addEventListener('input', updateButtonStates);
+                });
+                </script>
                 
                 <!-- Privacy Status -->
                 <div>

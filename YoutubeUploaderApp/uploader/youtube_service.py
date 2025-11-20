@@ -97,13 +97,14 @@ def get_authenticated_service(yt_account):
     return youtube
 
 
-def upload_short_to_youtube(short, yt_account):
+def upload_short_to_youtube(short, yt_account, tags=''):
     """
     Upload shorta na YouTube
     
     Args:
         short: Obiekt Short z bazy danych
         yt_account: Obiekt YTAccount z tokenami OAuth
+        tags: String z tagami (np. "#viral #trending #shorts")
     
     Returns:
         dict: {'success': bool, 'video_id': str, 'error': str}
@@ -111,13 +112,36 @@ def upload_short_to_youtube(short, yt_account):
     try:
         youtube = get_authenticated_service(yt_account)
         
+        # Przygotuj opis z tagami
+        description = short.description if short.description else ''
+        
+        # Dodaj tagi do opisu (YouTube Shorts wykorzystuje hashtagi w opisie)
+        if tags:
+            # Jeśli tagi nie mają #, dodaj
+            tags_list = tags.split()
+            formatted_tags = []
+            for tag in tags_list:
+                tag = tag.strip()
+                if tag:
+                    if not tag.startswith('#'):
+                        tag = '#' + tag
+                    formatted_tags.append(tag)
+            
+            # Dodaj tagi do opisu
+            if formatted_tags:
+                tags_str = ' '.join(formatted_tags)
+                if description:
+                    description = f"{description}\n\n{tags_str}"
+                else:
+                    description = tags_str
+        
         # Przygotuj metadata wideo
         request_body = {
             'snippet': {
                 'title': short.title[:100],  # YouTube limit 100 znaków
-                'description': short.description[:5000] if short.description else '',  # Limit 5000
+                'description': description[:5000],  # Limit 5000
                 'categoryId': '24',  # Entertainment
-                'tags': ['shorts', 'short', 'viral'],
+                'tags': ['shorts'],  # Podstawowy tag dla shorts
             },
             'status': {
                 'privacyStatus': short.privacy_status,

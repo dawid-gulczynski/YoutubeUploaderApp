@@ -130,6 +130,15 @@ class VideoUploadForm(forms.ModelForm):
 class ShortEditForm(forms.ModelForm):
     """Formularz do edycji metadanych shorta"""
     
+    tags = forms.CharField(
+        required=False,
+        widget=forms.TextInput(attrs={
+            'class': 'form-control',
+            'placeholder': 'np. fitness motywacja trening'
+        }),
+        help_text='Oddziel tagi spacją (bez #)'
+    )
+    
     class Meta:
         model = Short
         fields = ['title', 'description', 'privacy_status', 'scheduled_at', 'made_for_kids']
