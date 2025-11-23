@@ -141,7 +141,7 @@ class ShortEditForm(forms.ModelForm):
     
     class Meta:
         model = Short
-        fields = ['title', 'description', 'privacy_status', 'scheduled_at', 'made_for_kids']
+        fields = ['title', 'description', 'tags', 'privacy_status', 'scheduled_at', 'made_for_kids']
         widgets = {
             'title': forms.TextInput(attrs={
                 'class': 'form-control',

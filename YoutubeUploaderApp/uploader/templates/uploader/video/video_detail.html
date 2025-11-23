@@ -68,8 +68,8 @@
     </div>
 </div>
 
-<!-- Processing Status (if processing) -->
-{% if video.status == 'processing' %}
+<!-- Processing Status (if processing or just uploaded) -->
+{% if video.status == 'processing' or video.status == 'uploaded' %}
 <div class="bg-blue-50 border-l-4 border-blue-400 p-6 mb-6 rounded-r-lg" id="processing-container">
     <div class="flex items-center mb-4">
         <div class="flex-shrink-0">
@@ -86,7 +86,7 @@
         <div class="flex mb-2 items-center justify-between">
             <div>
                 <span class="text-xs font-semibold inline-block py-1 px-2 uppercase rounded-full text-blue-600 bg-blue-200" id="progress-shorts">
-                    {{ video.shorts_created }}/{{ video.shorts_total }} shortów
+                    {{ video.shorts_created }}/{{ video.shorts_total|default:"?" }} shortów
                 </span>
             </div>
             <div class="text-right">
@@ -106,12 +106,19 @@
 <script>
 let pollInterval;
 let lastShortsCount = {{ video.shorts_created }};
+let lastStatus = '{{ video.status }}';
 
 function updateProgress() {
     fetch('{% url "uploader:api_video_progress" video.pk %}')
         .then(response => response.json())
         .then(data => {
             console.log('Progress update:', data);
+            
+            // If status changed from 'uploaded' to 'processing', show notification
+            if (lastStatus === 'uploaded' && data.status === 'processing') {
+                showNotification('🎬 Rozpoczęto przetwarzanie wideo!');
+                lastStatus = 'processing';
+            }
             
             // Update progress bar
             const progressBar = document.getElementById('progress-bar');
@@ -121,8 +128,8 @@ function updateProgress() {
             
             if (progressBar) progressBar.style.width = data.progress + '%';
             if (progressPercent) progressPercent.textContent = data.progress + '%';
-            if (progressShorts) progressShorts.textContent = data.shorts_created + '/' + data.shorts_total + ' shortów';
-            if (processingMessage) processingMessage.textContent = data.message || 'Przetwarzanie...';
+            if (progressShorts) progressShorts.textContent = data.shorts_created + '/' + (data.shorts_total || '?') + ' shortów';
+            if (processingMessage) processingMessage.textContent = data.message || 'Inicjalizacja...';
             
             // Show notification when new short is created
             if (data.shorts_created > lastShortsCount) {

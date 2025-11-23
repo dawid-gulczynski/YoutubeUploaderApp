@@ -83,6 +83,26 @@
             </div>
             {% endif %}
             
+            <!-- Scheduled Info -->
+            {% if short.upload_status == 'scheduled' and short.scheduled_at %}
+            <div class="bg-blue-50 border-l-4 border-blue-500 p-4 mb-6 rounded">
+                <div class="flex items-start">
+                    <i class="fas fa-calendar-alt text-blue-600 text-xl mr-3 mt-1"></i>
+                    <div>
+                        <h4 class="font-semibold text-blue-900 mb-1">Zaplanowana publikacja</h4>
+                        <p class="text-sm text-blue-800">
+                            Ten short zostanie automatycznie opublikowany na YouTube:<br>
+                            <strong class="text-lg">{{ short.scheduled_at|date:"d.m.Y o H:i" }}</strong>
+                        </p>
+                        <p class="text-xs text-blue-700 mt-2">
+                            <i class="fas fa-info-circle mr-1"></i>
+                            Publikacja nastąpi automatycznie o wyznaczonej godzinie. Możesz edytować short lub zmienić termin.
+                        </p>
+                    </div>
+                </div>
+            </div>
+            {% endif %}
+            
             <!-- Source Video Info -->
             <div class="border-t border-gray-200 pt-4 mt-4">
                 <h3 class="text-sm font-medium text-gray-700 mb-3">Wideo źródłowe:</h3>
@@ -99,9 +119,14 @@
         <!-- YouTube Stats (if published) -->
         {% if short.upload_status == 'published' %}
         <div class="bg-white shadow-xl rounded-lg p-6">
-            <h3 class="text-lg font-semibold text-gray-900 mb-4">
-                <i class="fab fa-youtube text-red-600 mr-2"></i>Statystyki YouTube
-            </h3>
+            <div class="flex justify-between items-center mb-4">
+                <h3 class="text-lg font-semibold text-gray-900">
+                    <i class="fab fa-youtube text-red-600 mr-2"></i>Statystyki YouTube
+                </h3>
+                <a href="?refresh_suggestions=true" class="text-sm text-blue-600 hover:text-blue-700">
+                    <i class="fas fa-sync-alt mr-1"></i>Odśwież
+                </a>
+            </div>
             
             <div class="grid grid-cols-2 md:grid-cols-4 gap-4 mb-4">
                 <div class="bg-blue-50 p-4 rounded-lg text-center">
@@ -117,8 +142,8 @@
                     <div class="text-2xl font-bold text-purple-900">{{ short.comments|default:"0" }}</div>
                 </div>
                 <div class="bg-orange-50 p-4 rounded-lg text-center">
-                    <div class="text-sm text-orange-600 mb-1">Udostępnienia</div>
-                    <div class="text-2xl font-bold text-orange-900">{{ short.shares|default:"0" }}</div>
+                    <div class="text-sm text-orange-600 mb-1">Zaangażowanie</div>
+                    <div class="text-2xl font-bold text-orange-900">{{ short.engagement_rate|floatformat:1|default:"0" }}%</div>
                 </div>
             </div>
             
@@ -127,7 +152,142 @@
                 <i class="fas fa-external-link-alt mr-2"></i>Otwórz na YouTube
             </a>
             {% endif %}
+            
+            {% if short.last_analytics_update %}
+            <p class="text-xs text-gray-500 mt-3 text-center">
+                Ostatnia aktualizacja: {{ short.last_analytics_update|date:"d.m.Y H:i" }}
+            </p>
+            {% endif %}
         </div>
+        
+        <!-- Sugestie optymalizacji (tylko dla opublikowanych) -->
+        {% if has_suggestions %}
+        <div class="bg-white shadow-xl rounded-lg p-6">
+            <div class="flex items-center justify-between mb-4">
+                <h3 class="text-lg font-semibold text-gray-900">
+                    <i class="fas fa-lightbulb text-yellow-500 mr-2"></i>Sugestie optymalizacji
+                </h3>
+                <span class="text-sm text-gray-500">{{ suggestions.count }} sugestii</span>
+            </div>
+            
+            <!-- Critical Suggestions -->
+            {% if critical_suggestions %}
+            <div class="mb-4">
+                {% for suggestion in critical_suggestions %}
+                <div class="bg-red-50 border-l-4 border-red-500 p-4 mb-3 rounded">
+                    <div class="flex items-start">
+                        <i class="fas fa-{{ suggestion.get_priority_icon }} text-red-600 text-xl mr-3 mt-1"></i>
+                        <div class="flex-1">
+                            <h4 class="font-semibold text-red-900 mb-1">
+                                {{ suggestion.title }}
+                                <span class="ml-2 text-xs px-2 py-1 bg-red-200 text-red-800 rounded">KRYTYCZNE</span>
+                            </h4>
+                            <p class="text-sm text-red-800 whitespace-pre-line">{{ suggestion.description }}</p>
+                            {% if suggestion.current_value and suggestion.target_value %}
+                            <div class="mt-2 flex items-center text-xs text-red-700">
+                                <span class="font-mono">Aktualne: {{ suggestion.current_value|floatformat:1 }}</span>
+                                <i class="fas fa-arrow-right mx-2"></i>
+                                <span class="font-mono font-semibold">Cel: {{ suggestion.target_value|floatformat:0 }}</span>
+                            </div>
+                            {% endif %}
+                        </div>
+                    </div>
+                </div>
+                {% endfor %}
+            </div>
+            {% endif %}
+            
+            <!-- High Priority Suggestions -->
+            {% if high_suggestions %}
+            <div class="mb-4">
+                {% for suggestion in high_suggestions %}
+                <div class="bg-orange-50 border-l-4 border-orange-500 p-4 mb-3 rounded">
+                    <div class="flex items-start">
+                        <i class="fas fa-{{ suggestion.get_priority_icon }} text-orange-600 text-xl mr-3 mt-1"></i>
+                        <div class="flex-1">
+                            <h4 class="font-semibold text-orange-900 mb-1">
+                                {{ suggestion.title }}
+                                <span class="ml-2 text-xs px-2 py-1 bg-orange-200 text-orange-800 rounded">WYSOKI</span>
+                            </h4>
+                            <p class="text-sm text-orange-800 whitespace-pre-line">{{ suggestion.description }}</p>
+                            {% if suggestion.current_value and suggestion.target_value %}
+                            <div class="mt-2 flex items-center text-xs text-orange-700">
+                                <span class="font-mono">Aktualne: {{ suggestion.current_value|floatformat:1 }}</span>
+                                <i class="fas fa-arrow-right mx-2"></i>
+                                <span class="font-mono font-semibold">Cel: {{ suggestion.target_value|floatformat:0 }}</span>
+                            </div>
+                            {% endif %}
+                        </div>
+                    </div>
+                </div>
+                {% endfor %}
+            </div>
+            {% endif %}
+            
+            <!-- Medium Priority Suggestions -->
+            {% if medium_suggestions %}
+            <div class="mb-4">
+                {% for suggestion in medium_suggestions %}
+                <div class="bg-yellow-50 border-l-4 border-yellow-500 p-4 mb-3 rounded">
+                    <div class="flex items-start">
+                        <i class="fas fa-{{ suggestion.get_priority_icon }} text-yellow-600 text-xl mr-3 mt-1"></i>
+                        <div class="flex-1">
+                            <h4 class="font-semibold text-yellow-900 mb-1">
+                                {{ suggestion.title }}
+                                <span class="ml-2 text-xs px-2 py-1 bg-yellow-200 text-yellow-800 rounded">ŚREDNI</span>
+                            </h4>
+                            <p class="text-sm text-yellow-800 whitespace-pre-line">{{ suggestion.description }}</p>
+                            {% if suggestion.current_value and suggestion.target_value %}
+                            <div class="mt-2 flex items-center text-xs text-yellow-700">
+                                <span class="font-mono">Aktualne: {{ suggestion.current_value|floatformat:1 }}</span>
+                                <i class="fas fa-arrow-right mx-2"></i>
+                                <span class="font-mono font-semibold">Cel: {{ suggestion.target_value|floatformat:0 }}</span>
+                            </div>
+                            {% endif %}
+                        </div>
+                    </div>
+                </div>
+                {% endfor %}
+            </div>
+            {% endif %}
+            
+            <!-- Low Priority Suggestions -->
+            {% if low_suggestions %}
+            <details class="mt-4">
+                <summary class="cursor-pointer text-sm font-medium text-gray-700 hover:text-gray-900">
+                    <i class="fas fa-chevron-down mr-2"></i>Pokaż dodatkowe sugestie ({{ low_suggestions.count }})
+                </summary>
+                <div class="mt-3 space-y-3">
+                    {% for suggestion in low_suggestions %}
+                    <div class="bg-blue-50 border-l-4 border-blue-500 p-4 rounded">
+                        <div class="flex items-start">
+                            <i class="fas fa-{{ suggestion.get_priority_icon }} text-blue-600 text-xl mr-3 mt-1"></i>
+                            <div class="flex-1">
+                                <h4 class="font-semibold text-blue-900 mb-1">
+                                    {{ suggestion.title }}
+                                </h4>
+                                <p class="text-sm text-blue-800 whitespace-pre-line">{{ suggestion.description }}</p>
+                            </div>
+                        </div>
+                    </div>
+                    {% endfor %}
+                </div>
+            </details>
+            {% endif %}
+        </div>
+        {% elif short.upload_status == 'published' and short.views < 100 %}
+        <div class="bg-blue-50 border-l-4 border-blue-500 p-4 rounded">
+            <div class="flex items-start">
+                <i class="fas fa-info-circle text-blue-600 text-xl mr-3 mt-1"></i>
+                <div>
+                    <h4 class="font-semibold text-blue-900 mb-1">Zbyt mało danych</h4>
+                    <p class="text-sm text-blue-800">
+                        Twój short ma mniej niż 100 wyświetleń. Sugestie optymalizacji pojawią się gdy zbierzemy więcej danych analitycznych.
+                    </p>
+                </div>
+            </div>
+        </div>
+        {% endif %}
         {% endif %}
         
         <!-- Technical Details -->

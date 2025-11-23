@@ -151,8 +151,16 @@ def upload_short_to_youtube(short, yt_account, tags=''):
         
         # Dodaj harmonogram jeśli ustawiony
         if short.scheduled_at and short.scheduled_at > timezone.now():
-            request_body['status']['publishAt'] = short.scheduled_at.isoformat()
+            # YouTube wymaga formatu RFC 3339 z timezone (np. 2025-11-23T15:00:00Z)
+            scheduled_time = short.scheduled_at
+            # Konwertuj do UTC jeśli potrzeba
+            if timezone.is_aware(scheduled_time):
+                scheduled_time = scheduled_time.astimezone(timezone.utc)
+            
+            request_body['status']['publishAt'] = scheduled_time.strftime('%Y-%m-%dT%H:%M:%S.000Z')
             request_body['status']['privacyStatus'] = 'private'  # Musi być private dla scheduled
+            
+            logger.info(f"Scheduling video for: {request_body['status']['publishAt']}")
         
         # Przygotuj plik do uploadu
         media_file = MediaFileUpload(

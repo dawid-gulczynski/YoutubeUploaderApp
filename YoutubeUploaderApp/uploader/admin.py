@@ -1,6 +1,6 @@
 from django.contrib import admin
 from django.contrib.auth.admin import UserAdmin as BaseUserAdmin
-from .models import User, Role, YTAccount, Video, Short
+from .models import User, Role, YTAccount, Video, Short, ShortSuggestion
 
 
 @admin.register(Role)
@@ -79,14 +79,14 @@ class VideoAdmin(admin.ModelAdmin):
 
 @admin.register(Short)
 class ShortAdmin(admin.ModelAdmin):
-    list_display = ('title', 'video', 'upload_status', 'order', 'duration', 'views', 'created_at')
+    list_display = ('title', 'video', 'upload_status', 'order', 'duration', 'views', 'tags_count', 'hashtags_count', 'created_at')
     list_filter = ('upload_status', 'privacy_status', 'made_for_kids', 'created_at')
-    search_fields = ('title', 'description', 'yt_video_id', 'video__title')
-    readonly_fields = ('created_at', 'updated_at', 'published_at', 'yt_url')
+    search_fields = ('title', 'description', 'tags', 'yt_video_id', 'video__title')
+    readonly_fields = ('created_at', 'updated_at', 'published_at', 'yt_url', 'tags_count', 'hashtags_count')
     
     fieldsets = (
         ('Informacje podstawowe', {
-            'fields': ('video', 'title', 'description', 'short_file', 'thumbnail')
+            'fields': ('video', 'title', 'description', 'tags', 'short_file', 'thumbnail')
         }),
         ('Parametry cięcia', {
             'fields': ('start_time', 'duration', 'order')
@@ -98,7 +98,11 @@ class ShortAdmin(admin.ModelAdmin):
             'fields': ('yt_video_id', 'yt_url')
         }),
         ('Statystyki', {
-            'fields': ('views', 'likes', 'comments'),
+            'fields': ('views', 'likes', 'comments', 'shares', 'engagement_rate', 'retention_rate'),
+            'classes': ('collapse',)
+        }),
+        ('Metadata', {
+            'fields': ('title_length', 'description_length', 'tags_count', 'hashtags_count'),
             'classes': ('collapse',)
         }),
         ('Daty', {
@@ -106,3 +110,28 @@ class ShortAdmin(admin.ModelAdmin):
             'classes': ('collapse',)
         }),
     )
+
+
+@admin.register(ShortSuggestion)
+class ShortSuggestionAdmin(admin.ModelAdmin):
+    list_display = ('short', 'category', 'priority', 'title', 'is_resolved', 'created_at')
+    list_filter = ('category', 'priority', 'is_resolved', 'created_at')
+    search_fields = ('title', 'description', 'short__title')
+    readonly_fields = ('created_at',)
+    
+    fieldsets = (
+        ('Podstawowe informacje', {
+            'fields': ('short', 'category', 'priority', 'title', 'description')
+        }),
+        ('Metryki', {
+            'fields': ('metric_name', 'current_value', 'target_value'),
+            'classes': ('collapse',)
+        }),
+        ('Status', {
+            'fields': ('is_resolved', 'created_at')
+        }),
+    )
+    
+    def get_queryset(self, request):
+        qs = super().get_queryset(request)
+        return qs.select_related('short', 'short__video')

@@ -189,6 +189,7 @@ class Short(models.Model):
     # Podstawowe informacje
     title = models.CharField(max_length=100, verbose_name='Tytuł')
     description = models.TextField(blank=True, verbose_name='Opis')
+    tags = models.CharField(max_length=500, blank=True, verbose_name='Tagi', help_text='Tagi oddzielone przecinkami')
     short_file = models.FileField(upload_to='shorts/%Y/%m/%d/', verbose_name='Plik shorta')
     thumbnail = models.ImageField(upload_to='thumbnails/%Y/%m/%d/', blank=True, null=True, verbose_name='Miniaturka')
     
@@ -215,11 +216,26 @@ class Short(models.Model):
     views = models.IntegerField(default=0, verbose_name='Wyświetlenia')
     likes = models.IntegerField(default=0, verbose_name='Polubienia')
     comments = models.IntegerField(default=0, verbose_name='Komentarze')
+    shares = models.IntegerField(default=0, verbose_name='Udostępnienia')
+    
+    # Metryki analityczne
+    watch_time_minutes = models.FloatField(default=0, verbose_name='Czas oglądania (minuty)')
+    average_view_duration = models.FloatField(default=0, verbose_name='Średni czas oglądania (sekundy)')
+    click_through_rate = models.FloatField(default=0, verbose_name='CTR (%)')
+    engagement_rate = models.FloatField(default=0, verbose_name='Wskaźnik zaangażowania (%)')
+    retention_rate = models.FloatField(default=0, verbose_name='Retencja (%)')
+    
+    # Metadata do analizy
+    title_length = models.IntegerField(default=0, verbose_name='Długość tytułu')
+    description_length = models.IntegerField(default=0, verbose_name='Długość opisu')
+    tags_count = models.IntegerField(default=0, verbose_name='Liczba tagów')
+    hashtags_count = models.IntegerField(default=0, verbose_name='Liczba hashtagów w opisie')
     
     # Timestampy
     created_at = models.DateTimeField(auto_now_add=True, verbose_name='Data utworzenia')
     updated_at = models.DateTimeField(auto_now=True, verbose_name='Data aktualizacji')
     published_at = models.DateTimeField(null=True, blank=True, verbose_name='Data publikacji')
+    last_analytics_update = models.DateTimeField(null=True, blank=True, verbose_name='Ostatnia aktualizacja analityki')
     
     class Meta:
         verbose_name = 'Short'
@@ -234,3 +250,106 @@ class Short(models.Model):
     
     def can_publish(self):
         return self.upload_status in ['pending', 'failed']
+    
+    def calculate_engagement_rate(self):
+        """Oblicz wskaźnik zaangażowania"""
+        if self.views > 0:
+            self.engagement_rate = ((self.likes + self.comments + self.shares) / self.views) * 100
+        return self.engagement_rate
+    
+    def calculate_retention_rate(self):
+        """Oblicz wskaźnik retencji"""
+        if self.average_view_duration > 0 and self.duration > 0:
+            self.retention_rate = (self.average_view_duration / self.duration) * 100
+        return self.retention_rate
+    
+    def update_metadata_stats(self):
+        """Aktualizuj statystyki metadanych"""
+        import re
+        self.title_length = len(self.title) if self.title else 0
+        self.description_length = len(self.description) if self.description else 0
+        
+        # Policz tagi (w polu tags, oddzielone spacją lub przecinkami)
+        if self.tags:
+            # Usuń przecinki i podziel po spacjach
+            tags_list = [t.strip() for t in re.split(r'[,\s]+', self.tags) if t.strip()]
+            self.tags_count = len(tags_list)
+        else:
+            self.tags_count = 0
+        
+        # Policz hashtagi w opisie (słowa zaczynające się od #)
+        if self.description:
+            hashtag_pattern = r'#\w+'
+            self.hashtags_count = len(re.findall(hashtag_pattern, self.description))
+        else:
+            self.hashtags_count = 0
+    
+    def save(self, *args, **kwargs):
+        self.update_metadata_stats()
+        super().save(*args, **kwargs)
+
+
+# ============================================================================
+# VIDEO SUGGESTION MODEL (Sugestie optymalizacji dla shortów)
+# ============================================================================
+class ShortSuggestion(models.Model):
+    """Model reprezentujący sugestie optymalizacji dla shortów"""
+    
+    CATEGORY_CHOICES = [
+        ('title', 'Tytuł'),
+        ('description', 'Opis'),
+        ('thumbnail', 'Miniatura'),
+        ('timing', 'Czas publikacji'),
+        ('content', 'Treść wideo'),
+        ('engagement', 'Zaangażowanie'),
+    ]
+    
+    PRIORITY_CHOICES = [
+        ('low', 'Niska'),
+        ('medium', 'Średnia'),
+        ('high', 'Wysoka'),
+        ('critical', 'Krytyczna'),
+    ]
+    
+    short = models.ForeignKey(Short, on_delete=models.CASCADE, related_name='suggestions', verbose_name='Short')
+    category = models.CharField(max_length=20, choices=CATEGORY_CHOICES, verbose_name='Kategoria')
+    priority = models.CharField(max_length=10, choices=PRIORITY_CHOICES, default='medium', verbose_name='Priorytet')
+    
+    title = models.CharField(max_length=200, verbose_name='Tytuł sugestii')
+    description = models.TextField(verbose_name='Opis sugestii')
+    
+    # Metryki które wywołały sugestię
+    metric_name = models.CharField(max_length=50, blank=True, verbose_name='Nazwa metryki')
+    current_value = models.FloatField(null=True, blank=True, verbose_name='Aktualna wartość')
+    target_value = models.FloatField(null=True, blank=True, verbose_name='Wartość docelowa')
+    
+    is_resolved = models.BooleanField(default=False, verbose_name='Rozwiązane')
+    created_at = models.DateTimeField(auto_now_add=True, verbose_name='Data utworzenia')
+    
+    class Meta:
+        verbose_name = 'Sugestia'
+        verbose_name_plural = 'Sugestie'
+        ordering = ['-priority', '-created_at']
+    
+    def __str__(self):
+        return f"{self.get_category_display()} - {self.title}"
+    
+    def get_priority_color(self):
+        """Zwraca kolor dla danego priorytetu"""
+        colors = {
+            'low': 'blue',
+            'medium': 'yellow',
+            'high': 'orange',
+            'critical': 'red',
+        }
+        return colors.get(self.priority, 'gray')
+    
+    def get_priority_icon(self):
+        """Zwraca ikonę dla danego priorytetu"""
+        icons = {
+            'low': 'info-circle',
+            'medium': 'exclamation-circle',
+            'high': 'exclamation-triangle',
+            'critical': 'fire',
+        }
+        return icons.get(self.priority, 'info')

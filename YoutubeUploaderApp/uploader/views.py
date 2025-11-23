@@ -689,9 +689,38 @@ class ShortDetailView(LoginRequiredMixin, DetailView):
                         short.views = int(stats.get('viewCount', 0))
                         short.likes = int(stats.get('likeCount', 0))
                         short.comments = int(stats.get('commentCount', 0))
+                        
+                        # Oblicz metryki
+                        short.calculate_engagement_rate()
+                        short.last_analytics_update = timezone.now()
                         short.save()
                 except Exception as e:
                     logger.error(f'Error auto-refreshing stats: {str(e)}')
+        
+        # Generuj sugestie tylko dla opublikowanych shortów
+        if short.is_published():
+            from .suggestion_service import ShortSuggestionService
+            
+            # Sprawdź czy użytkownik chce odświeżyć sugestie
+            force_refresh = self.request.GET.get('refresh_suggestions') == 'true'
+            
+            # Generuj sugestie
+            suggestion_service = ShortSuggestionService(short)
+            suggestions = suggestion_service.generate_all_suggestions(force_refresh=force_refresh)
+            
+            # Dodaj sugestie do kontekstu pogrupowane po kategoriach
+            from .models import ShortSuggestion
+            context['suggestions'] = ShortSuggestion.objects.filter(
+                short=short,
+                is_resolved=False
+            )
+            context['has_suggestions'] = context['suggestions'].exists()
+            
+            # Grupuj sugestie po priorytecie
+            context['critical_suggestions'] = context['suggestions'].filter(priority='critical')
+            context['high_suggestions'] = context['suggestions'].filter(priority='high')
+            context['medium_suggestions'] = context['suggestions'].filter(priority='medium')
+            context['low_suggestions'] = context['suggestions'].filter(priority='low')
         
         return context
 
@@ -733,9 +762,22 @@ class ShortEditView(LoginRequiredMixin, UpdateView):
             # Pobierz tagi z formularza
             tags = form.cleaned_data.get('tags', '')
             
-            # Ustaw status "uploading"
-            short.upload_status = 'uploading'
-            short.save()
+            # Sprawdź czy to planowana publikacja
+            is_scheduled = short.scheduled_at and short.scheduled_at > timezone.now()
+            
+            # Ustaw status "uploading" lub "scheduled"
+            if is_scheduled:
+                short.upload_status = 'scheduled'
+                messages.info(
+                    self.request,
+                    f'📅 Short zostanie opublikowany automatycznie: {short.scheduled_at.strftime("%d.%m.%Y %H:%M")}'
+                )
+                short.save()
+                # Nie uploaduj teraz - zostanie uploadowany przez scheduled task
+                return response
+            else:
+                short.upload_status = 'uploading'
+                short.save()
             
             try:
                 # Upload na YouTube z tagami

@@ -102,6 +102,290 @@ YoutubeUploaderApp/
 - Automatyczny interfejs do zarządzania danymi
 - Dostępny pod `/admin/`
 
+## 🗄️ Struktura Bazy Danych
+
+### **Tabele główne:**
+
+#### 1. `uploader_user` - Użytkownicy
+```sql
+id              INTEGER PRIMARY KEY
+username        VARCHAR(150) UNIQUE
+email           VARCHAR(254) UNIQUE
+password        VARCHAR(128)
+first_name      VARCHAR(150)
+last_name       VARCHAR(150)
+role_id         INTEGER REFERENCES uploader_role(id)
+google_id       VARCHAR(255) UNIQUE          -- Google OAuth ID
+google_email    VARCHAR(254)                 -- Email z Google
+google_picture  VARCHAR(200)                 -- URL avatara Google
+auth_provider   VARCHAR(20)                  -- 'local' | 'google'
+email_verified  BOOLEAN DEFAULT FALSE
+is_staff        BOOLEAN DEFAULT FALSE
+is_active       BOOLEAN DEFAULT TRUE
+created_at      DATETIME
+updated_at      DATETIME
+```
+
+#### 2. `uploader_role` - Role użytkowników
+```sql
+id      INTEGER PRIMARY KEY
+name    VARCHAR(255)                     -- 'User' | 'Moderator' | 'Admin'
+symbol  VARCHAR(20) UNIQUE               -- 'user' | 'moderator' | 'admin'
+```
+
+#### 3. `uploader_ytaccount` - Konta YouTube użytkowników
+```sql
+id              INTEGER PRIMARY KEY
+user_id         INTEGER REFERENCES uploader_user(id)
+channel_name    VARCHAR(100)
+channel_id      VARCHAR(100)
+client_id       VARCHAR(500)             -- User's Google Cloud OAuth Client ID
+client_secret   VARCHAR(500)             -- User's Google Cloud OAuth Secret
+access_token    TEXT
+refresh_token   TEXT
+token_expiry    DATETIME
+is_active       BOOLEAN DEFAULT TRUE
+last_sync       DATETIME
+created_at      DATETIME
+updated_at      DATETIME
+```
+
+#### 4. `uploader_video` - Źródłowe długie wideo
+```sql
+id                    INTEGER PRIMARY KEY
+user_id               INTEGER REFERENCES uploader_user(id)
+title                 VARCHAR(150)
+description           TEXT
+video_file            VARCHAR(100)       -- Ścieżka do pliku
+duration              INTEGER            -- Sekundy
+resolution            VARCHAR(20)        -- np. '1920x1080'
+file_size             BIGINT             -- Bajty
+status                VARCHAR(20)        -- 'uploaded' | 'processing' | 'completed' | 'failed'
+processing_progress   INTEGER DEFAULT 0  -- 0-100%
+processing_message    VARCHAR(255)
+shorts_total          INTEGER DEFAULT 0  -- Planowana liczba shortów
+shorts_created        INTEGER DEFAULT 0  -- Utworzone shorty
+target_duration       INTEGER DEFAULT 60 -- Długość jednego shorta (sek)
+max_shorts_count      INTEGER DEFAULT 10 -- Max liczba shortów do utworzenia
+created_at            DATETIME
+updated_at            DATETIME
+```
+
+#### 5. `uploader_short` - YouTube Shorts
+```sql
+id                      INTEGER PRIMARY KEY
+video_id                INTEGER REFERENCES uploader_video(id)
+title                   VARCHAR(100)
+description             TEXT
+tags                    VARCHAR(500)              -- Tagi oddzielone spacjami
+short_file              VARCHAR(100)              -- Ścieżka do pliku
+thumbnail               VARCHAR(100)              -- Ścieżka do miniaturki
+start_time              FLOAT                     -- Start w źródłowym wideo (sek)
+duration                INTEGER                   -- Długość shorta (sek)
+order                   INTEGER DEFAULT 0         -- Kolejność w serii
+
+-- STATUS I HARMONOGRAM
+upload_status           VARCHAR(20)               -- 'pending' | 'scheduled' | 'uploading' | 'published' | 'failed'
+scheduled_at            DATETIME                  -- Kiedy opublikować
+published_at            DATETIME                  -- Kiedy faktycznie opublikowano
+
+-- YOUTUBE DATA
+yt_video_id             VARCHAR(255)              -- ID wideo na YouTube
+yt_url                  VARCHAR(255)              -- Link do YouTube
+privacy_status          VARCHAR(20)               -- 'public' | 'unlisted' | 'private'
+made_for_kids           BOOLEAN DEFAULT FALSE
+
+-- STATYSTYKI (z YouTube Analytics)
+views                   INTEGER DEFAULT 0
+likes                   INTEGER DEFAULT 0
+comments                INTEGER DEFAULT 0
+shares                  INTEGER DEFAULT 0
+watch_time_minutes      FLOAT DEFAULT 0
+average_view_duration   FLOAT DEFAULT 0           -- Sekundy
+click_through_rate      FLOAT DEFAULT 0           -- Procent
+engagement_rate         FLOAT DEFAULT 0           -- Procent
+retention_rate          FLOAT DEFAULT 0           -- Procent
+
+-- METADATA (auto-obliczane)
+title_length            INTEGER DEFAULT 0
+description_length      INTEGER DEFAULT 0
+tags_count              INTEGER DEFAULT 0         -- Liczba tagów z pola 'tags'
+hashtags_count          INTEGER DEFAULT 0         -- Liczba #hashtagów w opisie
+
+-- DATY
+created_at              DATETIME
+updated_at              DATETIME
+last_analytics_update   DATETIME                  -- Ostatnia aktualizacja statystyk
+```
+
+#### 6. `uploader_shortsuggestion` - Sugestie optymalizacji
+```sql
+id              INTEGER PRIMARY KEY
+short_id        INTEGER REFERENCES uploader_short(id)
+category        VARCHAR(20)        -- 'title' | 'description' | 'thumbnail' | 'timing' | 'content' | 'engagement'
+priority        VARCHAR(10)        -- 'low' | 'medium' | 'high' | 'critical'
+title           VARCHAR(200)       -- Tytuł sugestii
+description     TEXT               -- Szczegółowy opis
+metric_name     VARCHAR(50)        -- Nazwa metryki która wywołała sugestię
+current_value   FLOAT              -- Aktualna wartość
+target_value    FLOAT              -- Wartość docelowa
+is_resolved     BOOLEAN DEFAULT FALSE
+created_at      DATETIME
+```
+
+### **Relacje między tabelami:**
+
+```
+uploader_user (1) ──────< (∞) uploader_video
+    │
+    │
+    └──────< (∞) uploader_ytaccount
+    
+uploader_video (1) ──────< (∞) uploader_short
+
+uploader_short (1) ──────< (∞) uploader_shortsuggestion
+
+uploader_role (1) ──────< (∞) uploader_user
+```
+
+### **Kluczowe indeksy dla wydajności:**
+
+```sql
+-- Indeksy na user_id dla szybkich zapytań użytkownika
+CREATE INDEX idx_video_user ON uploader_video(user_id);
+CREATE INDEX idx_ytaccount_user ON uploader_ytaccount(user_id);
+
+-- Indeksy na statusy dla filtrowania
+CREATE INDEX idx_video_status ON uploader_video(status);
+CREATE INDEX idx_short_status ON uploader_short(upload_status);
+
+-- Indeks na scheduled_at dla cron job
+CREATE INDEX idx_short_scheduled ON uploader_short(scheduled_at, upload_status);
+
+-- Indeks na video_id dla shortów
+CREATE INDEX idx_short_video ON uploader_short(video_id);
+
+-- Indeks na sugestie
+CREATE INDEX idx_suggestion_short ON uploader_shortsuggestion(short_id, is_resolved);
+```
+
+### **Przykładowe zapytania:**
+
+```sql
+-- Znajdź shorty gotowe do publikacji (używane przez cron)
+SELECT * FROM uploader_short 
+WHERE upload_status = 'scheduled' 
+AND scheduled_at <= datetime('now');
+
+-- Statystyki użytkownika
+SELECT 
+    COUNT(DISTINCT v.id) as total_videos,
+    COUNT(s.id) as total_shorts,
+    SUM(s.views) as total_views
+FROM uploader_video v
+LEFT JOIN uploader_short s ON s.video_id = v.id
+WHERE v.user_id = ?;
+
+-- Najlepsze shorty użytkownika (po engagement)
+SELECT id, title, views, likes, engagement_rate
+FROM uploader_short
+WHERE video_id IN (SELECT id FROM uploader_video WHERE user_id = ?)
+AND upload_status = 'published'
+ORDER BY engagement_rate DESC
+LIMIT 10;
+
+-- Sugestie krytyczne dla użytkownika
+SELECT ss.*, s.title
+FROM uploader_shortsuggestion ss
+JOIN uploader_short s ON s.id = ss.short_id
+JOIN uploader_video v ON v.id = s.video_id
+WHERE v.user_id = ?
+AND ss.priority = 'critical'
+AND ss.is_resolved = 0;
+```
+
+### **⚡ Triggery bazodanowe:**
+
+Aplikacja wykorzystuje **3 automatyczne triggery** do zarządzania danymi:
+
+#### **1. Automatyczna aktualizacja licznika shortów w Video**
+```sql
+-- Trigger: update_video_shorts_count_on_insert
+-- Trigger: update_video_shorts_count_on_delete
+
+-- Co robi: Automatycznie aktualizuje pole 'shorts_created' w tabeli uploader_video
+--          za każdym razem gdy short jest dodawany lub usuwany
+
+-- Przykład: Gdy utworzysz nowy short z wideo o ID=5
+INSERT INTO uploader_short (video_id, title, ...) VALUES (5, 'Mój Short', ...);
+-- uploader_video.shorts_created dla video_id=5 automatycznie wzrośnie o 1
+
+-- Gdy usuniesz short
+DELETE FROM uploader_short WHERE id = 123;
+-- uploader_video.shorts_created automatycznie zmniejszy się o 1
+```
+
+**Korzyści:**
+- ✅ Zawsze aktualna liczba shortów bez ręcznego przeliczania
+- ✅ Brak potrzeby dodatkowych zapytań COUNT(*) w aplikacji
+- ✅ Gwarantowana spójność danych
+
+#### **2. Automatyczne ustawianie daty publikacji**
+```sql
+-- Trigger: set_published_at_on_status_change
+
+-- Co robi: Automatycznie ustawia pole 'published_at' na aktualną datę/czas
+--          gdy upload_status zmienia się na 'published'
+
+-- Przykład: Gdy short zostanie opublikowany
+UPDATE uploader_short 
+SET upload_status = 'published' 
+WHERE id = 456;
+-- Pole 'published_at' automatycznie ustawia się na datetime('now')
+```
+
+**Korzyści:**
+- ✅ Precyzyjna data publikacji bez dodatkowego kodu
+- ✅ Niemożliwe zapomnienie o ustawieniu daty
+- ✅ Jedna źródło prawdy o czasie publikacji
+
+#### **3. Automatyczny timestamp aktualizacji analityki**
+```sql
+-- Trigger: update_analytics_timestamp
+
+-- Co robi: Automatycznie aktualizuje pole 'last_analytics_update' gdy zmienią się
+--          jakiekolwiek statystyki (views, likes, comments, shares, engagement_rate, etc.)
+
+-- Przykład: Gdy zaktualizujesz statystyki z YouTube Analytics
+UPDATE uploader_short 
+SET views = 1500, likes = 120, engagement_rate = 8.5 
+WHERE id = 789;
+-- Pole 'last_analytics_update' automatycznie ustawia się na datetime('now')
+```
+
+**Korzyści:**
+- ✅ Wiesz dokładnie kiedy ostatnio pobrano statystyki z YouTube
+- ✅ Możliwość optymalizacji - nie pobieraj danych jeśli były świeżo zaktualizowane
+- ✅ Automatyczne śledzenie zmian bez dodatkowego kodu
+
+**🔧 Zarządzanie triggerami:**
+
+```bash
+# Zastosuj triggery (automatycznie podczas migracji)
+python manage.py migrate uploader
+
+# Sprawdź listę triggerów w bazie
+sqlite3 db.sqlite3 "SELECT name FROM sqlite_master WHERE type='trigger';"
+
+# Usuń wszystkie triggery (rollback migracji)
+python manage.py migrate uploader 0006
+
+# Ponownie zastosuj triggery
+python manage.py migrate uploader
+```
+
+**⚠️ Uwaga:** Triggery są specyficzne dla SQLite. Jeśli zmienisz bazę na PostgreSQL/MySQL, system Django automatycznie dostosuje składnię triggerów podczas migracji.
+
 ## 🚀 Szybki Start (7 minut)
 
 ### 1. Zainstaluj zależności
