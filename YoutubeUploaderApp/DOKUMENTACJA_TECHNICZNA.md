@@ -19,15 +19,17 @@
 ### 1.1 Cel aplikacji
 YouTube Uploader to aplikacja webowa Django służąca do automatyzacji procesu tworzenia i publikacji YouTube Shorts. Aplikacja umożliwia:
 - Upload długich filmów wideo
-- Automatyczne cięcie na krótsze segmenty (YouTube Shorts)
+- Automatyczne cięcie na krótsze segmenty (YouTube Shorts) z live progress tracking
 - Zarządzanie metadanymi (tytuły, opisy, tagi)
 - Automatyczna publikacja na YouTube
-- Zarządzanie użytkownikami z systemem ról
+- Real-time monitoring postępu przetwarzania
+- Zarządzanie użytkownikami z systemem ról (User, Moderator, Admin)
 
 ### 1.2 Główne założenia
 - **Modułowa architektura**: Separacja logiki biznesowej, prezentacji i danych
 - **User-provided credentials**: Każdy użytkownik korzysta z własnych kluczy API YouTube
 - **Asynchroniczne przetwarzanie**: Cięcie wideo w tle bez blokowania UI
+- **Real-time progress tracking**: Live monitoring postępu przetwarzania z AJAX polling
 - **System ról**: User, Moderator, Admin z różnymi uprawnieniami
 - **Bezpieczeństwo**: OAuth 2.0, haszowanie haseł, walidacja danych
 
@@ -150,7 +152,7 @@ Django ORM działa jako warstwa abstrakcji nad bazą danych.
 
 ```python
 Django==5.2.7                    # Web framework
-google-auth-oauthlib==1.2.0      # Google OAuth flow
+google-auth-oauthlib==1.2.0      # Google OAuth flow (własna implementacja)
 google-api-python-client==2.123.0 # YouTube API client
 google-auth==2.28.0              # Google authentication
 Pillow==10.2.0                   # Przetwarzanie obrazów (miniatury)
@@ -159,6 +161,8 @@ ffmpeg-python==0.2.0             # Python wrapper dla FFmpeg
 PyJWT==2.8.0                     # JWT tokens
 cryptography==42.0.5             # Szyfrowanie
 ```
+
+**Uwaga:** Projekt nie używa `django-allauth` - zamiast tego implementuje własny Google OAuth flow z większą kontrolą nad procesem.
 
 ---
 
@@ -408,6 +412,17 @@ cryptography==42.0.5             # Szyfrowanie
 
 ### 5.2 Moduł: Video Processing (`video_processing.py`)
 
+#### System Progress Tracking
+
+**Nowe pola w modelu Video:**
+- `processing_progress`: IntegerField (0-100%) - procent ukończenia
+- `processing_message`: CharField(255) - tekstowy status (np. "Tworzenie shorta 3/7...")
+- `shorts_total`: IntegerField - planowana liczba shortów
+- `shorts_created`: IntegerField - liczba już utworzonych shortów
+
+**Aktualizacja w czasie rzeczywistym:**
+System aktualizuje postęp po każdym utworzonym shorcie, umożliwiając live monitoring przez frontend.
+
 #### Klasa: VideoProcessingService
 
 **Metody:**
@@ -421,7 +436,7 @@ def update_video_metadata():
 
 def cut_into_shorts(crop_mode='center'):
     """
-    Główna metoda - dzieli wideo na shorty
+    Główna metoda - dzieli wideo na shorty z live progress tracking
     
     Args:
         crop_mode: 'center', 'smart', 'top'
@@ -429,9 +444,21 @@ def cut_into_shorts(crop_mode='center'):
     Process:
         1. Analiza wideo (ffprobe)
         2. Obliczenie liczby shortów
-        3. Tworzenie segmentów (ffmpeg)
-        4. Zapisywanie w bazie (Short objects)
+        3. Ustawienie shorts_total w modelu
+        4. Tworzenie segmentów (ffmpeg) w pętli:
+           - Aktualizacja processing_progress
+           - Aktualizacja processing_message
+           - Aktualizacja shorts_created
+           - Zapisywanie po każdym shorcie
         5. Generowanie miniatur
+        6. Finalizacja (status='completed', progress=100%)
+    
+    Progress tracking example:
+        shorts_total = 7
+        Loop iteration 1: shorts_created=1, progress=14%, message="Tworzenie shorta 1/7..."
+        Loop iteration 2: shorts_created=2, progress=28%, message="Tworzenie shorta 2/7..."
+        ...
+        Loop iteration 7: shorts_created=7, progress=100%, message="Gotowe! Utworzono 7 shortów."
     """
 
 def _create_short_segment(start_time, duration, output_path, crop_mode):
@@ -653,6 +680,9 @@ def admin_dashboard(request):
 
 ### 6.1 Google OAuth 2.0 (Logowanie)
 
+#### Własna implementacja Google OAuth
+**Uwaga:** Projekt implementuje własny Google OAuth flow (bez django-allauth) dla większej kontroli.
+
 #### Credentials:
 ```python
 # W .env file
@@ -664,6 +694,11 @@ GOOGLE_LOGIN_CLIENT_SECRET=your-client-secret
 ```
 http://localhost:8000/auth/google/callback/
 ```
+
+#### Implementacja:
+- `google_login_direct()`: Inicjalizacja OAuth flow z google_auth_oauthlib.flow.Flow
+- `google_callback()`: Obsługa callback, pobranie user info, utworzenie/zalogowanie użytkownika
+- State parameter zapisywany w sesji dla zabezpieczenia CSRF
 
 #### Scopes:
 ```python
@@ -764,6 +799,8 @@ ffmpeg -y \
 ### 6.4 Internal API Endpoints
 
 #### GET `/api/video/<pk>/progress/`
+**Opis:** Real-time endpoint do monitorowania postępu przetwarzania wideo.
+
 **Response:**
 ```json
 {
@@ -778,7 +815,44 @@ ffmpeg -y \
 }
 ```
 
-**Użycie:** Polling z JavaScript do live update progress bar.
+**Użycie:** 
+- AJAX polling z frontend co 2 sekundy
+- Aktualizacja progress bar, licznika shortów, komunikatu
+- Toast notifications przy każdym nowym shorcie
+- Auto-refresh strony po zakończeniu (completed/failed)
+
+**Frontend implementation:**
+```javascript
+// Polling co 2 sekundy
+setInterval(() => {
+    fetch('/api/video/{{ video.pk }}/progress/')
+        .then(response => response.json())
+        .then(data => {
+            // Update progress bar
+            document.getElementById('progress-bar').style.width = data.progress + '%';
+            
+            // Update text
+            document.getElementById('progress-percent').textContent = data.progress + '%';
+            document.getElementById('progress-message').textContent = data.message;
+            
+            // Show notification for new shorts
+            if (data.shorts_created > lastCount) {
+                showToast('✅ Utworzono short ' + data.shorts_created + '/' + data.shorts_total);
+                lastCount = data.shorts_created;
+            }
+            
+            // Auto-reload when done
+            if (data.is_completed || data.is_failed) {
+                setTimeout(() => location.reload(), 2000);
+            }
+        });
+}, 2000);
+```
+
+**Performance:**
+- Jeden query do bazy per request
+- Lightweight JSON response (~200 bytes)
+- Automatyczne czyszczenie interwału przy opuszczeniu strony
 
 ---
 
@@ -1264,7 +1338,86 @@ CACHES = {
 
 ---
 
-## 11. Troubleshooting
+## 11. User Experience - Progress Tracking
+
+### 11.1 Wizualna prezentacja postępu
+
+#### Progress Bar
+```html
+<!-- Animowany pasek postępu -->
+<div class="progress-container">
+    <div class="progress-bar" 
+         style="width: {{ video.processing_progress }}%"
+         class="transition-all duration-500">
+    </div>
+</div>
+```
+
+#### Informacje tekstowe
+- **Procent:** `42%` - Aktualny postęp
+- **Licznik shortów:** `3/7 shortów` - Ile utworzono z całkowitej liczby
+- **Status:** `Tworzenie shorta 3/7...` - Co się dzieje w tym momencie
+
+#### Toast Notifications
+```
+✅ Utworzono short 1/7
+✅ Utworzono short 2/7
+✅ Utworzono short 3/7
+...
+🎉 Przetwarzanie zakończone! Utworzono 7 shortów.
+```
+
+### 11.2 Stany przetwarzania
+
+| Status | Opis | Progress | Kolory |
+|--------|------|----------|--------|
+| `uploaded` | Wideo wgrane, oczekuje | 0% | Żółty badge |
+| `processing` | Przetwarzanie w toku | 0-99% | Niebieski badge + spinner |
+| `completed` | Zakończone pomyślnie | 100% | Zielony badge + checkmark |
+| `failed` | Błąd podczas przetwarzania | - | Czerwony badge + warning |
+
+### 11.3 Typowy przepływ z timelineami
+
+**Przykład: 5-minutowe wideo → 5 shortów po 60s**
+
+```
+00:00 - Upload wideo
+00:01 - Status: processing, Message: "Rozpoczynanie..."
+00:05 - Message: "Analiza wideo..."
+00:10 - shorts_total = 5, Message: "Tworzenie 5 shortów..."
+
+00:30 - Short 1/5 created → progress=20%, Toast: "✅ Utworzono short 1/5"
+00:50 - Short 2/5 created → progress=40%, Toast: "✅ Utworzono short 2/5"
+01:10 - Short 3/5 created → progress=60%, Toast: "✅ Utworzono short 3/5"
+01:30 - Short 4/5 created → progress=80%, Toast: "✅ Utworzono short 4/5"
+01:50 - Short 5/5 created → progress=100%, Toast: "✅ Utworzono short 5/5"
+
+02:00 - Status: completed, Toast: "🎉 Przetwarzanie zakończone!"
+02:02 - Auto-refresh strony → Lista 5 shortów widoczna
+```
+
+### 11.4 Dashboard Integration
+
+Progress tracking widoczny również na dashboardzie:
+- Mini progress bar przy każdym przetwarzanym wideo
+- Status badge (Processing/Completed/Failed)
+- Szybki podgląd bez wchodzenia w szczegóły
+
+### 11.5 Metryki UX
+
+✅ **Cele osiągnięte:**
+- Użytkownik zawsze wie co się dzieje
+- Brak niepewności czy proces trwa
+- Instant feedback po każdym shorcie
+- Brak konieczności ręcznego odświeżania
+- Klarowna komunikacja błędów
+
+⏱️ **Performance:**
+- Polling: 2 sekundy (optimal balance)
+- Toast duration: 4 sekundy
+- Auto-reload delay: 2 sekundy po zakończeniu
+
+## 12. Troubleshooting
 
 ### 11.1 Częste problemy
 
@@ -1320,9 +1473,55 @@ python check_oauth.py
 
 ---
 
-## 12. Dalszy rozwój
+## 12. Stan implementacji
 
-### 12.1 Planowane funkcje
+### 12.1 Zaimplementowane funkcje ✅
+
+#### Autentykacja i autoryzacja
+- ✅ Rejestracja użytkowników (email + hasło)
+- ✅ Logowanie tradycyjne
+- ✅ **Google OAuth** (własna implementacja bez django-allauth)
+- ✅ System ról (User, Moderator, Admin)
+- ✅ Edycja profilu użytkownika
+- ✅ Zarządzanie użytkownikami (dla moderatorów/adminów)
+
+#### Przetwarzanie wideo
+- ✅ Upload wideo (max 2GB)
+- ✅ **FFmpeg integration** - automatyczne cięcie
+- ✅ Konfiguracja parametrów (długość shorta, liczba, tryb kadrowania)
+- ✅ **Real-time progress tracking** z AJAX polling
+- ✅ Live progress bar (0-100%)
+- ✅ Toast notifications przy każdym shorcie
+- ✅ Generowanie miniatur
+- ✅ Crop do formatu 9:16 (YouTube Shorts)
+
+#### YouTube Integration
+- ✅ **User-provided credentials** - każdy użytkownik własne API
+- ✅ YouTube OAuth flow
+- ✅ Upload shortów na YouTube
+- ✅ Zarządzanie metadanymi (tytuł, opis, tagi)
+- ✅ Privacy settings (public/unlisted/private)
+- ✅ Made for kids option
+- ✅ Odświeżanie statystyk (views, likes, comments)
+- ✅ Automatyczne odświeżanie tokenów
+
+#### Dashboard i monitoring
+- ✅ User dashboard z statystykami
+- ✅ Moderator dashboard (global stats)
+- ✅ Admin dashboard (szczegółowe metryki)
+- ✅ Lista wideo z mini progress bars
+- ✅ Lista shortów z filtrami
+- ✅ Zarządzanie użytkownikami
+
+#### API i endpointy
+- ✅ `/api/video/<pk>/progress/` - Real-time progress
+- ✅ REST-like endpoints dla CRUD operacji
+- ✅ Zabezpieczenia (@login_required, permissions)
+
+### 12.2 Planowane funkcje
+- [ ] **WebSocket support** dla instant progress updates (zamiast polling)
+- [ ] **Estimated time remaining** - przewidywany czas zakończenia przetwarzania
+- [ ] **Browser notifications** - powiadomienia systemowe gdy zakładka nieaktywna
 - [ ] Celery dla background tasks
 - [ ] Redis caching
 - [ ] Batch upload (wiele shortów naraz)
@@ -1330,9 +1529,11 @@ python check_oauth.py
 - [ ] Analytics dashboard (wykresy, statystyki)
 - [ ] Webhook notifications (Discord, Slack)
 - [ ] AI-powered thumbnail generation
-- [ ] Smart cropping (face detection)
+- [ ] Smart cropping (face detection) z OpenCV
 - [ ] Multi-language support (i18n)
 - [ ] Mobile app (React Native)
+- [ ] **Pause/Resume** przetwarzania wideo
+- [ ] **Priority queue** dla wielu wideo jednocześnie
 
 ### 12.2 Optymalizacje
 - [ ] Database indexes
@@ -1422,8 +1623,10 @@ python manage.py migrate uploader 0001
 
 **Autorzy:** Dawid Gulczyński, Kajetan Szlenzak  
 **Framework:** Django 5.2.7  
-**Wersja:** 2.0  
-**Data:** 2025-11-23
+**Wersja:** 2.1  
+**Data utworzenia:** 2025-01-20  
+**Ostatnia aktualizacja:** 2025-11-23  
+**Zmiany:** Dodano szczegółowy opis real-time progress tracking oraz własnej implementacji Google OAuth (bez django-allauth)
 
 ---
 
