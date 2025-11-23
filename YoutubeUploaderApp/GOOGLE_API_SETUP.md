@@ -1,9 +1,16 @@
-# 🔐 Konfiguracja Google API dla YouTube OAuth
+# 🔐 Konfiguracja Google API dla YouTube (User-Provided Credentials)
 
-## Przegląd
-Aby móc publikować shorty na YouTube, aplikacja potrzebuje dostępu do YouTube Data API v3 przez OAuth 2.0.
+## 📌 Ważne - Model User-Provided Credentials
 
-## 📋 Krok po kroku: Tworzenie Google API credentials
+Ta aplikacja używa modelu **user-provided credentials** - każdy użytkownik dostarcza własne klucze API YouTube, co oznacza:
+- ✅ Każdy użytkownik ma własne YouTube API quota (10,000 units/dzień)
+- ✅ Nie ma współdzielonego limitu między użytkownikami
+- ✅ Pełna kontrola użytkownika nad dostępem do swojego kanału
+- ✅ Brak `client_secrets.json` na serwerze
+
+## 📋 Krok po kroku: Instrukcja dla użytkowników
+
+Każdy użytkownik aplikacji musi wykonać te kroki, aby móc publikować shorty na swoim kanale YouTube:
 
 ### 1. Utwórz projekt w Google Cloud Console
 
@@ -52,90 +59,57 @@ Aby móc publikować shorty na YouTube, aplikacja potrzebuje dostępu do YouTube
    - Dla produkcji: `https://yourdomain.com/youtube/oauth/callback/`
 6. Kliknij **"CREATE"**
 
-### 5. Pobierz credentials
+### 5. Pobierz i zapisz credentials
 
 1. Po utworzeniu zobaczysz modal z **Client ID** i **Client Secret**
-2. Kliknij **"DOWNLOAD JSON"**
-3. Pobierz plik (np. `client_secret_xxx.json`)
+2. **Skopiuj oba** - będą potrzebne w aplikacji
+3. NIE pobieraj jako JSON - aplikacja przyjmuje credentials bezpośrednio
 
-### 6. Skonfiguruj aplikację Django
+**⚠️ WAŻNE:** NIE umieszczaj tych credentials w `client_secrets.json` na serwerze. Wprowadzisz je bezpośrednio w aplikacji podczas łączenia konta YouTube.
 
-1. Skopiuj pobrany plik do głównego katalogu projektu:
-   ```powershell
-   cp path/to/downloaded/client_secret_xxx.json client_secrets.json
-   ```
+### 6. Wprowadź credentials w aplikacji
 
-2. Alternatywnie: skopiuj zawartość do `client_secrets.json` ręcznie
-
-3. Struktura pliku `client_secrets.json`:
-   ```json
-   {
-     "web": {
-       "client_id": "1234567890-xxx.apps.googleusercontent.com",
-       "project_id": "youtube-shorts-uploader",
-       "auth_uri": "https://accounts.google.com/o/oauth2/auth",
-       "token_uri": "https://oauth2.googleapis.com/token",
-       "auth_provider_x509_cert_url": "https://www.googleapis.com/oauth2/v1/certs",
-       "client_secret": "GOCSPX-xxxxxxxxxxxxx",
-       "redirect_uris": [
-         "http://127.0.0.1:8000/youtube/oauth/callback/"
-       ]
-     }
-   }
-   ```
-
-4. **WAŻNE**: Dodaj `client_secrets.json` do `.gitignore`:
-   ```
-   client_secrets.json
-   ```
-
-### 7. Testowanie OAuth flow
-
-1. Uruchom serwer Django:
-   ```powershell
-   python manage.py runserver
-   ```
-
-2. Zaloguj się do aplikacji
-
-3. Przejdź do: **Dashboard** → **Połącz konto YouTube**
-
-4. Kliknij **"Autoryzuj z Google"**
-
-5. Zaloguj się do Google (użyj konta dodanego jako test user)
-
-6. Zaakceptuj uprawnienia
-
-7. Zostaniesz przekierowany z powrotem - konto połączone! ✅
+1. Zaloguj się do aplikacji YouTube Uploader
+2. Przejdź do: **Dashboard** → **Połącz konto YouTube**
+3. Wypełnij formularz:
+   - **Client ID**: wklej skopiowany Client ID
+   - **Client Secret**: wklej skopiowany Client Secret
+4. Kliknij **"Połącz z YouTube"**
+5. Zostaniesz przekierowany do Google OAuth
+6. Zaloguj się i zatwierdź uprawnienia
+7. ✅ Konto połączone - możesz publikować shorty!
 
 ## 🔒 Bezpieczeństwo
 
-### Nigdy nie commituj:
-- ❌ `client_secrets.json` - zawiera client_secret
-- ❌ Tokens w kodzie - przechowuj w bazie danych
-- ❌ API keys w kodzie - używaj zmiennych środowiskowych
+### Model User-Provided Credentials:
+- ✅ Credentials przechowywane w bazie danych (YTAccount model)
+- ✅ Każdy użytkownik ma własne credentials
+- ✅ Tokeny automatycznie odświeżane
+- ✅ Brak shared credentials na serwerze
 
-### Dobre praktyki:
-- ✅ Używaj HTTPS w produkcji
-- ✅ Regularnie rotuj secrets
-- ✅ Ogranicz scopes do minimum
-- ✅ Monitoruj użycie API w Google Console
+### Użytkownicy powinni:
+- ✅ Nie udostępniać swojego Client ID i Client Secret
+- ✅ Używać HTTPS w produkcji
+- ✅ Regularnie monitorować użycie API w Google Console
+- ✅ Odłączyć konto w aplikacji jeśli już nie jest używane
 
 ## 📊 Limity YouTube Data API v3
 
 ### Quota dzienne (domyślnie):
-- **10,000 units/dzień** (za darmo)
+- **10,000 units/dzień PER USER** (za darmo)
+- Każdy użytkownik ma własny limit dzięki user-provided credentials
 
 ### Koszty operacji:
 - **Video upload**: 1600 units
 - **Video list**: 1 unit
 - **Channel info**: 1 unit
 
-### Przykład:
+### Przykład (dla pojedynczego użytkownika):
 - **6 uploadów/dzień** = 9,600 units (96% limitu)
 - **100+ uploadów/dzień** = Potrzebne zwiększenie limitu
 
-### Zwiększenie limitu:
+### Zwiększenie limitu (dla użytkownika):
+Każdy użytkownik może wystąpić o zwiększenie limitu w swoim Google Cloud Project:
 1. Google Cloud Console → **"YouTube Data API v3"** → **"Quotas"**
 2. Kliknij **"ALL QUOTAS"**
 3. Znajdź **"Queries per day"**
@@ -148,12 +122,13 @@ Aby móc publikować shorty na YouTube, aplikacja potrzebuje dostępu do YouTube
 **Rozwiązanie**: Sprawdź Authorized redirect URIs - musi dokładnie pasować do URL w aplikacji
 
 ### Błąd: "invalid_client"
-**Rozwiązanie**: Sprawdź czy `client_secrets.json` ma poprawną strukturę i client_id
+**Rozwiązanie**: Sprawdź czy Client ID i Client Secret są poprawnie skopiowane w aplikacji (bez spacji na końcu)
 
 ### Błąd: "403 Forbidden"
 **Rozwiązanie**: 
-- Sprawdź czy YouTube Data API v3 jest włączone
+- Sprawdź czy YouTube Data API v3 jest włączone w Twoim Google Cloud Project
 - Sprawdź czy token nie wygasł (aplikacja automatycznie odświeża)
+- Kliknij "Odłącz konto" i połącz ponownie
 
 ### Błąd: "The user is not a test user"
 **Rozwiązanie**: W OAuth consent screen → Test users → Dodaj swojego użytkownika
@@ -191,5 +166,6 @@ Aby móc publikować shorty na YouTube, aplikacja potrzebuje dostępu do YouTube
 ---
 
 **Utworzono**: 2025-11-02  
-**Wersja**: 1.0  
-**Status**: Gotowe do użycia
+**Zaktualizowano**: 2025-11-23  
+**Wersja**: 2.0 (User-Provided Credentials)  
+**Status**: Aktualna dokumentacja

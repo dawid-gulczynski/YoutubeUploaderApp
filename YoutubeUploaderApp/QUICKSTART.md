@@ -1,5 +1,9 @@
 # 🚀 Szybki Start - Google OAuth Logowanie
 
+## 📌 Ważne - Własna implementacja OAuth
+
+Ta aplikacja używa **własnej implementacji Google OAuth** (bez django-allauth) dla większej kontroli nad procesem autoryzacji.
+
 ## ⚡ Krok 1: Uzyskaj Google OAuth Credentials (5 minut)
 
 ### A. Utwórz Google Cloud Project
@@ -17,7 +21,7 @@
    - Developer email: twój email
 4. **SAVE AND CONTINUE**
 5. W **Scopes**: kliknij **ADD OR REMOVE SCOPES**
-   - Zaznacz: `userinfo.email` i `userinfo.profile`
+   - Zaznacz: `userinfo.email`, `userinfo.profile` i `openid`
    - **UPDATE**
 6. **SAVE AND CONTINUE**
 7. W **Test users**: dodaj swój email
@@ -30,33 +34,27 @@
 4. Name: `YouTube Uploader - Login`
 5. **Authorized redirect URIs** - kliknij **ADD URI**:
    ```
-   http://localhost:8000/accounts/google/login/callback/
+   http://localhost:8000/auth/google/callback/
    ```
+   ⚠️ **UWAGA:** Zmieniony URL - nie `accounts/google` tylko `auth/google`
 6. **CREATE**
 7. **Skopiuj Client ID i Client Secret** (zapisz w notatniku)
 
-## ⚡ Krok 2: Skonfiguruj Aplikację (2 minuty)
+## ⚡ Krok 2: Skonfiguruj Aplikację (1 minuta)
 
 ### A. Edytuj plik .env
 Otwórz plik `.env` w katalogu głównym projektu i wklej swoje credentials:
 
 ```env
-# Google OAuth dla logowania użytkowników
+# Google OAuth dla logowania użytkowników (własna implementacja)
 GOOGLE_LOGIN_CLIENT_ID=123456789-abc.apps.googleusercontent.com
 GOOGLE_LOGIN_CLIENT_SECRET=GOCSPX-xxxxxxxxxxxxx
 ```
 
-### B. Uruchom komendę konfiguracji
+### B. Uruchom migracje (jeśli jeszcze nie było)
 ```bash
-python manage.py setup_google_oauth
-```
-
-Powinieneś zobaczyć:
-```
-✓ Zaktualizowano Site: localhost:8000
-✓ Utworzono Google Social App
-✓ Dodano site do Social App
-✅ Konfiguracja Google OAuth zakończona pomyślnie!
+python manage.py migrate
+python manage.py init_roles
 ```
 
 ## ⚡ Krok 3: Testuj! (30 sekund)
@@ -86,20 +84,21 @@ Jeśli wszystko działa, możesz teraz:
 ### Błąd: "redirect_uri_mismatch"
 **Rozwiązanie:** W Google Cloud Console sprawdź czy redirect URI to dokładnie:
 ```
-http://localhost:8000/accounts/google/login/callback/
+http://localhost:8000/auth/google/callback/
 ```
+⚠️ Nie `accounts/google` - używamy własnej implementacji!
 
 ### Błąd: "Error 400: invalid_request"
 **Rozwiązanie:** 
 1. Sprawdź OAuth Consent Screen (czy wypełniony?)
 2. Dodaj swój email jako Test User
-3. Sprawdź czy scopes zawierają `email` i `profile`
+3. Sprawdź czy scopes zawierają `openid`, `email` i `profile`
 
-### Błąd: "SocialApp matching query does not exist"
-**Rozwiązanie:** Uruchom ponownie:
-```bash
-python manage.py setup_google_oauth
-```
+### Błąd: "Brak google_oauth_state w sesji"
+**Rozwiązanie:** 
+1. Wyczyść cookies przeglądarki
+2. Spróbuj ponownie kliknąć "Zaloguj przez Google"
+3. Sprawdź czy SECRET_KEY w .env jest ustawiony
 
 ### Logowanie nie działa w ogóle
 **Rozwiązanie:**
@@ -107,7 +106,24 @@ python manage.py setup_google_oauth
 2. Sprawdź `python manage.py runserver` - czy są błędy?
 3. Sprawdź console w przeglądarce (F12)
 
+## 📚 Dodatkowe informacje
+
+### Jak działa autoryzacja w tej aplikacji?
+
+**Własna implementacja OAuth 2.0:**
+- `google_login_direct()` - inicjalizuje OAuth flow z `google_auth_oauthlib`
+- `google_callback()` - obsługuje callback, pobiera dane użytkownika z Google API
+- Automatyczne tworzenie/logowanie użytkownika
+- State parameter dla bezpieczeństwa CSRF
+
+**Dlaczego nie django-allauth?**
+- Większa kontrola nad procesem
+- Mniej zależności
+- Łatwiejsza konfiguracja
+- Lepsze zrozumienie flow OAuth
+
 ---
 
-**Czas konfiguracji: ~7 minut**  
-**Poziom trudności: ⭐⭐☆☆☆**
+**Czas konfiguracji: ~6 minut**  
+**Poziom trudności: ⭐⭐☆☆☆**  
+**Data aktualizacji: 2025-11-23**
