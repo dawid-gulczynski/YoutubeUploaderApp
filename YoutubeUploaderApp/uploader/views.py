@@ -43,8 +43,8 @@ def google_login_direct(request):
     os.environ['OAUTHLIB_INSECURE_TRANSPORT'] = '1'
     
     # Pobierz credentials z .env
-    client_id = os.getenv('GOOGLE_LOGIN_CLIENT_ID', '')
-    client_secret = os.getenv('GOOGLE_LOGIN_CLIENT_SECRET', '')
+    client_id = os.getenv('GOOGLE_CLIENT_ID', '')
+    client_secret = os.getenv('GOOGLE_CLIENT_SECRET', '')
     
     if not client_id or not client_secret:
         messages.error(request, '❌ Google OAuth nie jest skonfigurowany. Skontaktuj się z administratorem.')
@@ -101,8 +101,9 @@ def google_callback(request):
         messages.error(request, '❌ Błąd: Brak state w sesji. Spróbuj ponownie.')
         return redirect('uploader:login')
     
-    client_id = os.getenv('GOOGLE_LOGIN_CLIENT_ID', '')
-    client_secret = os.getenv('GOOGLE_LOGIN_CLIENT_SECRET', '')
+    # Nowe nazwy zmiennych środowiskowych (ujednolicone)
+    client_id = os.getenv('GOOGLE_CLIENT_ID', '')
+    client_secret = os.getenv('GOOGLE_CLIENT_SECRET', '')
     
     try:
         # Utwórz client config
